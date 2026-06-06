@@ -69,7 +69,7 @@ export default function LoginPage() {
             });
 
             setTimeout(() => {
-                router.push("/");
+                router.replace("/");
             }, 1000);
 
         } catch (error: any) {

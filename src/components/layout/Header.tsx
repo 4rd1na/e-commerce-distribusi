@@ -3,21 +3,8 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-
-import {
-    Menu,
-    ShoppingCart,
-    LogOut,
-    X,
-    Search,
-    User as UserIcon,
-    ShoppingBag,
-    MapPin,
-    FileText
-} from "lucide-react";
-
+import { Menu, ShoppingCart, LogOut, X, Search, User as UserIcon, ShoppingBag, MapPin, FileText } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
-
 import { Button } from "@/components/ui/button";
 
 import {
@@ -27,11 +14,7 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-import {
-    Avatar,
-    AvatarFallback,
-    AvatarImage,
-} from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 interface Profile {
     id: string;
@@ -71,8 +54,21 @@ export default function Header() {
     useEffect(() => {
         getSession();
 
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(() => { getSession(); });
-        return () => { subscription.unsubscribe(); };
+        // Jalankan pengecekan ulang jumlah cart tiap kali ada event 'cart-updated' dipicu
+        const handleCartUpdateEvent = () => {
+            getCartCountOnly();
+        };
+
+        window.addEventListener("cart-updated", handleCartUpdateEvent);
+
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
+            getSession();
+        });
+
+        return () => {
+            subscription.unsubscribe();
+            window.removeEventListener("cart-updated", handleCartUpdateEvent);
+        };
     }, []);
 
     const getSession = async () => {
@@ -93,12 +89,23 @@ export default function Header() {
                 .single();
 
             setProfile(profileData);
+            getCartCountOnly(user.id);
+        } catch (error) {
+            console.error(error);
+        }
+    };
+
+    // Fungsi mandiri untuk tarik nilai Qty Item Cart secara real-time
+    const getCartCountOnly = async (userId?: string) => {
+        try {
+            const activeUserId = userId || (await supabase.auth.getUser()).data.user?.id;
+            if (!activeUserId) return;
 
             const { data: cart } = await supabase
                 .from("carts")
                 .select("id")
-                .eq("user_id", user.id)
-                .single();
+                .eq("user_id", activeUserId)
+                .maybeSingle();
 
             if (cart) {
                 const { data: items } = await supabase
@@ -109,8 +116,8 @@ export default function Header() {
                 const total = items?.reduce((acc, item) => acc + item.qty, 0) || 0;
                 setCartCount(total);
             }
-        } catch (error) {
-            console.error(error);
+        } catch (err) {
+            console.error("Gagal mengambil data qty cart", err);
         }
     };
 
@@ -120,8 +127,9 @@ export default function Header() {
             if (error) throw error;
 
             localStorage.clear();
+            sessionStorage.clear();
             setMenuOpen(false);
-            router.push("/auth/login");
+            router.replace("/");
         } catch (error) {
             console.error("Gagal Logout", error);
         }
@@ -131,7 +139,7 @@ export default function Header() {
         if (!user) {
             router.push("/auth/login");
         } else {
-            router.push("/cart");
+            router.push("/carts");
         }
         setMenuOpen(false);
     };
@@ -175,19 +183,17 @@ export default function Header() {
                 {/* RIGHT */}
                 <div className="flex items-center gap-2">
                     {/* PENGAJUAN (DESKTOP) */}
+                    <Link href="/" className="hidden md:block">
+                        <Button variant="outline" className="rounded-xl border-none">
+                            Home
+                        </Button>
+                    </Link>
                     {user && (
-                        <>
-                            <Link href="/" className="hidden md:block">
-                                <Button variant="outline" className="rounded-xl border-none">
-                                    Home
-                                </Button>
-                            </Link>
-                            <Link href="/pengajuan" className="hidden md:block">
-                                <Button variant="outline" className="rounded-xl border-none">
-                                    Pengajuan
-                                </Button>
-                            </Link>
-                        </>
+                        <Link href="/pengajuan" className="hidden md:block">
+                            <Button variant="outline" className="rounded-xl border-none">
+                                Pengajuan
+                            </Button>
+                        </Link>
                     )}
 
                     {/* CART (DESKTOP) */}
@@ -200,9 +206,9 @@ export default function Header() {
                         >
                             <ShoppingCart className="w-5 h-5" />
                             {cartCount > 0 && (
-                                <div className="absolute -top-1 -right-1 h-5 min-w-5 px-1 rounded-full bg-emerald-600 text-white text-[10px] flex items-center justify-center">
+                                <span className="absolute top-0 right-0 h-4 min-w-4 px-1 rounded-full bg-emerald-600 text-white text-[9px] font-bold flex items-center justify-center transform translate-x-1 -translate-y-1 shadow-sm animate-in scale-in duration-100">
                                     {cartCount}
-                                </div>
+                                </span>
                             )}
                         </Button>
                     </div>
