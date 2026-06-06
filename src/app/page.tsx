@@ -7,7 +7,6 @@ import { supabase } from "@/lib/supabase/client";
 import { useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 
-// Sesuaikan interface agar menampung struktur data asli variant
 interface Variant {
   id: string;
   variant_name: string;
@@ -15,10 +14,11 @@ interface Variant {
   stock: number;
 }
 
-interface Product {
+interface Products {
   id: string;
   name: string;
   slug: string;
+  type: 'barang' | 'jasa';
   description: string;
   image_url: string;
   category: string;
@@ -28,11 +28,13 @@ interface Product {
 
 export default function ProductsPage() {
   const router = useRouter();
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<Products[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [addingToCart, setAddingToCart] = useState<string | null>(null);
+  const [categories, setCategories] = useState<{ id: string; name: string; slug: string }[]>([]);
+  const [selectedType, setSelectedType] = useState<string>("all");
+  const [selectedCategory, setSelectedCategory] = useState<string>("all");
 
-  // State untuk menyimpan varian yang dipilih user per produk [productId: variantId]
   const [selectedVariants, setSelectedVariants] = useState<{ [key: string]: string }>({});
 
   const searchParams = useSearchParams();
@@ -48,14 +50,20 @@ export default function ProductsPage() {
   }, [searchQuery]);
 
   const filteredProducts = products.filter((p) => {
-    return (
+    const matchesSearch =
       p.name.toLowerCase().includes(searchQuery) ||
-      p.category.toLowerCase().includes(searchQuery)
-    );
+      p.category.toLowerCase().includes(searchQuery);
+
+    const matchesType = selectedType === "all" || p.type === selectedType;
+
+    const matchesCategory = selectedCategory === "all" || p.category.toLowerCase() === selectedCategory.toLowerCase();
+
+    return matchesSearch && matchesType && matchesCategory;
   });
 
   useEffect(() => {
     fetchProducts();
+    fetchCategories();
   }, []);
 
   const fetchProducts = async () => {
@@ -67,6 +75,7 @@ export default function ProductsPage() {
           id,
           name,
           slug,
+          type,
           description,
           image_url,
           is_active,
@@ -83,8 +92,7 @@ export default function ProductsPage() {
       if (error) throw error;
 
       if (data) {
-        const formattedProducts: Product[] = data.map((p: any) => {
-          // Map semua varian yang dimiliki produk ini
+        const formattedProducts: Products[] = data.map((p: any) => {
           const variants: Variant[] = p.product_variants?.map((v: any) => {
             const variantStock = v.inventory_stocks?.reduce((acc: number, s: any) => acc + (s.qty || 0), 0) || 0;
             return {
@@ -101,6 +109,7 @@ export default function ProductsPage() {
             id: p.id,
             name: p.name,
             slug: p.slug,
+            type: p.type,
             description: p.description,
             image_url: p.image_url,
             category: p.product_categories?.name || "Uncategorized",
@@ -111,7 +120,6 @@ export default function ProductsPage() {
 
         setProducts(formattedProducts);
 
-        // Set default variant yang terpilih (varian pertama) untuk tiap produk
         const defaults: { [key: string]: string } = {};
         formattedProducts.forEach(p => {
           if (p.variants.length > 0) {
@@ -127,10 +135,22 @@ export default function ProductsPage() {
     }
   };
 
-  // FUNGSI UTAMA TAMBAH KE KERANJANG
-  const handleAddToCart = async (product: Product) => {
+  const fetchCategories = async () => {
     try {
-      // 1. Cek Auth User
+      const { data, error } = await supabase
+        .from("product_categories")
+        .select("id, name, slug")
+        .order("name", { ascending: true });
+
+      if (error) throw error;
+      if (data) setCategories(data);
+    } catch (error) {
+      console.error("Gagal memuat kategori:", error);
+    }
+  };
+
+  const handleAddToCart = async (product: Products) => {
+    try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         router.push("/auth/login");
@@ -142,7 +162,6 @@ export default function ProductsPage() {
 
       setAddingToCart(variantId);
 
-      // 2. Ambil atau buat data cart aktif milik user
       let { data: cart } = await supabase
         .from("carts")
         .select("id")
@@ -160,7 +179,6 @@ export default function ProductsPage() {
         cart = newCart;
       }
 
-      // 3. Cek apakah varian barang ini sudah ada di dalam cart_items
       const { data: existingItem } = await supabase
         .from("cart_items")
         .select("id, qty")
@@ -169,7 +187,6 @@ export default function ProductsPage() {
         .maybeSingle();
 
       if (existingItem) {
-        // Jika sudah ada, tambahkan qty (+1)
         const { error: updateError } = await supabase
           .from("cart_items")
           .update({ qty: existingItem.qty + 1 })
@@ -177,7 +194,6 @@ export default function ProductsPage() {
 
         if (updateError) throw updateError;
       } else {
-        // Jika belum ada, buat baris baru
         const { error: insertError } = await supabase
           .from("cart_items")
           .insert({
@@ -199,9 +215,9 @@ export default function ProductsPage() {
     }
   };
 
+  // KONDISI LOADING UTAMA SAAT PERTAMA KALI HALAMAN DIBUKA
   if (loading) return <div className="container mx-auto px-4 py-10 text-center text-slate-500 text-sm font-medium">Memuat produk...</div>;
   if (products.length === 0) return <div className="container mx-auto px-4 py-10 text-center text-slate-500 text-sm font-medium">Belum ada produk yang tersedia saat ini.</div>;
-  if (filteredProducts.length === 0) return <div className="text-center py-10 text-sm text-slate-500">Produk tidak ditemukan</div>;
 
   const SkeletonCard = () => (
     <div className="bg-white border border-slate-200 rounded-xl overflow-hidden animate-pulse">
@@ -218,10 +234,76 @@ export default function ProductsPage() {
 
   return (
     <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-6">
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2.5 sm:gap-4">
-        {searchLoading
-          ? Array.from({ length: 10 }).map((_, idx) => <SkeletonCard key={idx} />)
-          : filteredProducts.map((p) => {
+
+      {/* ================= FILTER TETAP DI SINI DAN TIDAK AKAN HILANG ================= */}
+      <div className="mb-6 space-y-4">
+        {/* FILTER 1: TIPE PRODUK */}
+        <div>
+          <span className="text-xs font-semibold text-slate-500 block mb-2">Tipe Layanan</span>
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+            {[
+              { label: "Semua", value: "all" },
+              { label: "📦 Barang", value: "barang" },
+              { label: "🛠️ Jasa", value: "jasa" }
+            ].map((t) => (
+              <button
+                key={t.value}
+                onClick={() => setSelectedType(t.value)}
+                className={`text-xs px-3 py-1.5 rounded-full font-medium border transition whitespace-nowrap ${selectedType === t.value
+                    ? "bg-emerald-600 text-white border-emerald-600 shadow-sm"
+                    : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
+                  }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* FILTER 2: KATEGORI DINAMIS */}
+        <div>
+          <span className="text-xs font-semibold text-slate-500 block mb-2">Kategori Produk</span>
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+            <button
+              onClick={() => setSelectedCategory("all")}
+              className={`text-xs px-3 py-1.5 rounded-full font-medium border transition whitespace-nowrap ${selectedCategory === "all"
+                  ? "bg-emerald-600 text-white border-emerald-600 shadow-sm"
+                  : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
+                }`}
+            >
+              Semua Kategori
+            </button>
+
+            {categories.map((cat) => (
+              <button
+                key={cat.id}
+                onClick={() => setSelectedCategory(cat.slug)}
+                className={`text-xs px-3 py-1.5 rounded-full font-medium border transition whitespace-nowrap ${selectedCategory === cat.slug
+                    ? "bg-emerald-600 text-white border-emerald-600 shadow-sm"
+                    : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
+                  }`}
+              >
+                {cat.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ================= AREA ELEMEN CARDS / KONTEN UTAMA ================= */}
+      {searchLoading ? (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2.5 sm:gap-4">
+          {Array.from({ length: 10 }).map((_, idx) => <SkeletonCard key={idx} />)}
+        </div>
+      ) : filteredProducts.length === 0 ? (
+        /* Jika diklik filter 'Jasa' atau kategori yang belum ada produknya, pesan ini muncul di bawah tombol filter */
+        <div className="text-center py-16 text-sm text-slate-500 bg-white rounded-xl border border-slate-200 shadow-sm">
+          <p className="font-medium text-slate-600">Produk tidak ditemukan</p>
+          <p className="text-xs text-slate-400 mt-1">Coba pilih tipe layanan atau kategori produk lainnya.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2.5 sm:gap-4">
+          {filteredProducts.map((p) => {
             const currentVariantId = selectedVariants[p.id];
             const currentVariant = p.variants.find(v => v.id === currentVariantId) || p.variants[0];
             const price = currentVariant ? currentVariant.base_price : 0;
@@ -307,7 +389,8 @@ export default function ProductsPage() {
               </div>
             );
           })}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
