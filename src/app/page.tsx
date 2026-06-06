@@ -215,7 +215,6 @@ export default function ProductsPage() {
     }
   };
 
-  // KONDISI LOADING UTAMA SAAT PERTAMA KALI HALAMAN DIBUKA
   if (loading) return <div className="container mx-auto px-4 py-10 text-center text-slate-500 text-sm font-medium">Memuat produk...</div>;
   if (products.length === 0) return <div className="container mx-auto px-4 py-10 text-center text-slate-500 text-sm font-medium">Belum ada produk yang tersedia saat ini.</div>;
 
@@ -235,12 +234,13 @@ export default function ProductsPage() {
   return (
     <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-6">
 
-      {/* ================= FILTER TETAP DI SINI DAN TIDAK AKAN HILANG ================= */}
-      <div className="mb-6 space-y-4">
+      {/* ================= CARD FILTER RESPONSIVE ================= */}
+      <div className="mb-6 p-3 sm:p-4 bg-white rounded-xl border border-slate-200 shadow-sm grid grid-cols-1 md:grid-cols-2 gap-4">
+
         {/* FILTER 1: TIPE PRODUK */}
-        <div>
+        <div className="flex flex-col min-w-0">
           <span className="text-xs font-semibold text-slate-500 block mb-2">Tipe Layanan</span>
-          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none snap-x">
             {[
               { label: "Semua", value: "all" },
               { label: "📦 Barang", value: "barang" },
@@ -249,9 +249,9 @@ export default function ProductsPage() {
               <button
                 key={t.value}
                 onClick={() => setSelectedType(t.value)}
-                className={`text-xs px-3 py-1.5 rounded-full font-medium border transition whitespace-nowrap ${selectedType === t.value
+                className={`text-xs px-3 py-1.5 rounded-full font-medium border transition whitespace-nowrap snap-tight ${selectedType === t.value
                     ? "bg-emerald-600 text-white border-emerald-600 shadow-sm"
-                    : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
+                    : "bg-slate-50 text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-100"
                   }`}
               >
                 {t.label}
@@ -261,14 +261,14 @@ export default function ProductsPage() {
         </div>
 
         {/* FILTER 2: KATEGORI DINAMIS */}
-        <div>
+        <div className="flex flex-col min-w-0 border-t border-slate-100 pt-3 md:border-t-0 md:pt-0">
           <span className="text-xs font-semibold text-slate-500 block mb-2">Kategori Produk</span>
-          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none snap-x">
             <button
               onClick={() => setSelectedCategory("all")}
-              className={`text-xs px-3 py-1.5 rounded-full font-medium border transition whitespace-nowrap ${selectedCategory === "all"
+              className={`text-xs px-3 py-1.5 rounded-full font-medium border transition whitespace-nowrap snap-tight ${selectedCategory === "all"
                   ? "bg-emerald-600 text-white border-emerald-600 shadow-sm"
-                  : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
+                  : "bg-slate-50 text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-100"
                 }`}
             >
               Semua Kategori
@@ -278,9 +278,9 @@ export default function ProductsPage() {
               <button
                 key={cat.id}
                 onClick={() => setSelectedCategory(cat.slug)}
-                className={`text-xs px-3 py-1.5 rounded-full font-medium border transition whitespace-nowrap ${selectedCategory === cat.slug
+                className={`text-xs px-3 py-1.5 rounded-full font-medium border transition whitespace-nowrap snap-tight ${selectedCategory === cat.slug
                     ? "bg-emerald-600 text-white border-emerald-600 shadow-sm"
-                    : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
+                    : "bg-slate-50 text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-100"
                   }`}
               >
                 {cat.name}
@@ -289,6 +289,7 @@ export default function ProductsPage() {
           </div>
         </div>
       </div>
+      {/* ================= SECTION FILTER END ================= */}
 
       {/* ================= AREA ELEMEN CARDS / KONTEN UTAMA ================= */}
       {searchLoading ? (
@@ -296,7 +297,6 @@ export default function ProductsPage() {
           {Array.from({ length: 10 }).map((_, idx) => <SkeletonCard key={idx} />)}
         </div>
       ) : filteredProducts.length === 0 ? (
-        /* Jika diklik filter 'Jasa' atau kategori yang belum ada produknya, pesan ini muncul di bawah tombol filter */
         <div className="text-center py-16 text-sm text-slate-500 bg-white rounded-xl border border-slate-200 shadow-sm">
           <p className="font-medium text-slate-600">Produk tidak ditemukan</p>
           <p className="text-xs text-slate-400 mt-1">Coba pilih tipe layanan atau kategori produk lainnya.</p>
@@ -332,7 +332,7 @@ export default function ProductsPage() {
 
                   {p.description && <p className="hidden sm:block text-[11px] text-slate-500 line-clamp-2 mt-1">{p.description}</p>}
 
-                  {/* SELECTOR VARIANT KALAU VARIANTNYA LEBIH DARI 1 */}
+                  {/* SELECTOR VARIANT */}
                   {p.variants.length > 1 && (
                     <div className="mt-2">
                       <select
