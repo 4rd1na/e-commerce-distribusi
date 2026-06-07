@@ -12,7 +12,6 @@ import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
     const router = useRouter();
-
     const [email, setEmail] = useState("");
     const [otp, setOtp] = useState("");
     const [step, setStep] = useState<'email' | 'otp'>('email');
@@ -52,7 +51,7 @@ export default function LoginPage() {
         setMessage(null);
 
         try {
-            const { error } = await supabase.auth.verifyOtp({
+            const { data: { user }, error } = await supabase.auth.verifyOtp({
                 email: email,
                 token: otp,
                 type: "email",
@@ -60,18 +59,43 @@ export default function LoginPage() {
 
             if (error) throw error;
 
-            // Kunci sakelar tepat setelah Supabase menyatakan sukses
-            isVerifiedRef.current = true;
+            if (user) {
 
-            setMessage({
-                type: "success",
-                text: "Login berhasil, mengalihkan...",
-            });
+                await supabase.auth.refreshSession();
 
-            setTimeout(() => {
-                router.replace("/");
-            }, 1000);
+                const {
+                    data: { session },
+                } = await supabase.auth.getSession();
 
+                console.log("SESSION:", session);
+
+                const { data: profile } = await supabase
+                    .from("profiles")
+                    .select("role")
+                    .eq("id", user.id)
+                    .single();
+
+                setMessage({
+                    type: "success",
+                    text: "Login berhasil, mengalihkan...",
+                });
+
+                isVerifiedRef.current = true;
+
+                // await supabase.auth.getSession();
+
+                setTimeout(() => {
+
+                    router.refresh();
+
+                    router.replace(
+                        profile?.role === "internal"
+                            ? "/admin/products"
+                            : "/"
+                    );
+
+                }, 1000);
+            }
         } catch (error: any) {
             // Jika pemicu kedua masuk ke sini tapi status aslinya sudah sukses, amankan UI
             if (isVerifiedRef.current) return;
@@ -108,7 +132,6 @@ export default function LoginPage() {
                 email,
                 options: {
                     shouldCreateUser: false,
-                    emailRedirectTo: undefined,
                 },
             });
 

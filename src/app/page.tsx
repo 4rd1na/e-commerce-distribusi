@@ -250,8 +250,8 @@ export default function ProductsPage() {
                 key={t.value}
                 onClick={() => setSelectedType(t.value)}
                 className={`text-xs px-3 py-1.5 rounded-full font-medium border transition whitespace-nowrap snap-tight ${selectedType === t.value
-                    ? "bg-emerald-600 text-white border-emerald-600 shadow-sm"
-                    : "bg-slate-50 text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-100"
+                  ? "bg-emerald-600 text-white border-emerald-600 shadow-sm"
+                  : "bg-slate-50 text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-100"
                   }`}
               >
                 {t.label}
@@ -267,8 +267,8 @@ export default function ProductsPage() {
             <button
               onClick={() => setSelectedCategory("all")}
               className={`text-xs px-3 py-1.5 rounded-full font-medium border transition whitespace-nowrap snap-tight ${selectedCategory === "all"
-                  ? "bg-emerald-600 text-white border-emerald-600 shadow-sm"
-                  : "bg-slate-50 text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-100"
+                ? "bg-emerald-600 text-white border-emerald-600 shadow-sm"
+                : "bg-slate-50 text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-100"
                 }`}
             >
               Semua Kategori
@@ -279,8 +279,8 @@ export default function ProductsPage() {
                 key={cat.id}
                 onClick={() => setSelectedCategory(cat.slug)}
                 className={`text-xs px-3 py-1.5 rounded-full font-medium border transition whitespace-nowrap snap-tight ${selectedCategory === cat.slug
-                    ? "bg-emerald-600 text-white border-emerald-600 shadow-sm"
-                    : "bg-slate-50 text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-100"
+                  ? "bg-emerald-600 text-white border-emerald-600 shadow-sm"
+                  : "bg-slate-50 text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-100"
                   }`}
               >
                 {cat.name}

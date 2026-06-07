@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { Menu, ShoppingCart, LogOut, X, Search, User as UserIcon, ShoppingBag, MapPin, FileText } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,7 @@ interface Profile {
 
 export default function Header() {
     const router = useRouter();
+    const pathname = usePathname();
     const [menuOpen, setMenuOpen] = useState(false);
     const [user, setUser] = useState<any>(null);
     const [profile, setProfile] = useState<Profile | null>(null);
@@ -39,6 +40,7 @@ export default function Header() {
     }, [searchParams]);
 
     useEffect(() => {
+        if (pathname !== "/") return;
         const timer = setTimeout(() => {
             const trimmed = search.trim();
             if (trimmed === "") {
@@ -127,7 +129,6 @@ export default function Header() {
             if (error) throw error;
 
             localStorage.clear();
-            sessionStorage.clear();
             setMenuOpen(false);
             router.replace("/");
         } catch (error) {
