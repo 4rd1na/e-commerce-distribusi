@@ -71,9 +71,11 @@ export default function LoginPage() {
 
                 const { data: profile } = await supabase
                     .from("profiles")
-                    .select("role")
+                    .select("role, internal_role")
                     .eq("id", user.id)
                     .single();
+
+                console.log("PROFILE:", profile);
 
                 setMessage({
                     type: "success",
@@ -85,15 +87,24 @@ export default function LoginPage() {
                 // await supabase.auth.getSession();
 
                 setTimeout(() => {
-
                     router.refresh();
+                    if (profile?.role === "internal") {
 
-                    router.replace(
-                        profile?.role === "internal"
-                            ? "/admin/products"
-                            : "/"
-                    );
-
+                        if (profile.internal_role === "admin") {
+                            router.replace("/admin/products");
+                        }
+                        else if (profile.internal_role === "support") {
+                            router.replace("/support");
+                        }
+                        else if (profile.internal_role === "billing") {
+                            router.replace("/billing");
+                        }
+                        else {
+                            router.replace("/");
+                        }
+                    } else {
+                        router.replace("/");
+                    }
                 }, 1000);
             }
         } catch (error: any) {
