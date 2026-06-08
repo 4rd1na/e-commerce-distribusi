@@ -36,14 +36,14 @@ export async function middleware(request: NextRequest) {
         }
     );
 
-    // PENTING
     await supabase.auth.getUser();
-
     return response;
 }
 
 export const config = {
     matcher: [
-        "/((?!_next/static|_next/image|favicon.ico).*)",
+        "/admin/:path*",
+        "/support/:path*",
+        "/billing/:path*",
     ],
 };

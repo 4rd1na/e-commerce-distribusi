@@ -84,7 +84,9 @@ export default function CartPage() {
     const updateQuantity = async (itemId: string, currentQty: number, delta: number) => {
         const newQty = currentQty + delta;
         if (newQty <= 0) {
-            handleDeleteItem(itemId);
+            const confirmDelete = window.confirm("Yakin ingin menghapus produk dari keranjang?");
+            if (!confirmDelete) return;
+            handleDeleteItem(itemId, true);
             return;
         }
 
@@ -105,7 +107,11 @@ export default function CartPage() {
         }
     };
 
-    const handleDeleteItem = async (itemId: string) => {
+    const handleDeleteItem = async (itemId: string, bypassConfirm = false) => {
+        if (!bypassConfirm) {
+            const confirmDelete = window.confirm("Yakin ingin menghapus produk dari keranjang?");
+            if (!confirmDelete) return; // Batalkan proses jika klik 'Cancel'
+        }
         try {
             setItems(prev => prev.filter(item => item.id !== itemId));
 

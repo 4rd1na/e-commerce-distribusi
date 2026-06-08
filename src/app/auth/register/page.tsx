@@ -46,6 +46,7 @@ export default function RegisterPage() {
             });
 
             if (error) throw error;
+            await supabase.auth.signOut();
 
             setMessageType("success");
             setMessage("Pendaftaran berhasil! Silahkan login...");

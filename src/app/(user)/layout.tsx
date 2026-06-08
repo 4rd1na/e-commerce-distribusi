@@ -1,9 +1,9 @@
 "use client";
 
-import Header from "./Header";
-import Footer from "./Footer";
+import Header from "@/components/layout/Header";
+import Footer from "@/components/layout/Footer";
 
-export default function AppLayout({
+export default function CustomerGroupLayout({
     children,
 }: {
     children: React.ReactNode;
@@ -11,11 +11,9 @@ export default function AppLayout({
     return (
         <div className="min-h-screen flex flex-col bg-slate-50">
             <Header />
-
             <main className="flex-1">
                 {children}
             </main>
-
             <Footer />
         </div>
     );

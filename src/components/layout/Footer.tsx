@@ -21,14 +21,14 @@ export default function Footer() {
                     {/* TENGAH: Info Tambahan Ringkas (Navigasi & Kontak) */}
                     <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-1 text-xs text-slate-500 font-medium">
                         <Link href="/" className="hover:text-emerald-600 transition">Beranda</Link>
-                        <Link href="/pengajuan" className="hover:text-emerald-600 transition">Pengajuan</Link>
+                        <Link href="/pengajuan" className="hover:text-emerald-600 transition">Kemitraan</Link>
                         <span className="text-slate-300 hidden sm:inline">|</span>
                         <span className="text-slate-500">support@dinamart.com</span>
                     </div>
 
                     {/* KANAN: Copyright */}
                     <div className="text-xs text-slate-500 text-center md:text-right">
-                        © {new Date().getFullYear()} DinaMart. All rights reserved.
+                        © {new Date().getFullYear()} DinaMart. Semua hak dilindungi undang-undang.
                     </div>
 
                 </div>

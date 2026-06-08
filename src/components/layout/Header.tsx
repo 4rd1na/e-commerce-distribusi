@@ -183,16 +183,16 @@ export default function Header() {
 
                 {/* RIGHT */}
                 <div className="flex items-center gap-2">
-                    {/* PENGAJUAN (DESKTOP) */}
+                    {/* KEMITRAAN (DESKTOP) */}
                     <Link href="/" className="hidden md:block">
                         <Button variant="outline" className="rounded-xl border-none">
-                            Home
+                            Beranda
                         </Button>
                     </Link>
                     {user && (
-                        <Link href="/pengajuan" className="hidden md:block">
+                        <Link href="/kemitraan" className="hidden md:block">
                             <Button variant="outline" className="rounded-xl border-none">
-                                Pengajuan
+                                Kemitraan
                             </Button>
                         </Link>
                     )}
@@ -291,7 +291,7 @@ export default function Header() {
                                 onClick={() => setMenuOpen(false)}
                                 className="flex items-center px-3 py-2 text-sm font-semibold rounded-xl text-slate-700 hover:bg-slate-50"
                             >
-                                Home
+                                Beranda
                             </Link>
 
                             <button
@@ -311,13 +311,13 @@ export default function Header() {
 
                             {user && (
                                 <Link
-                                    href="/pengajuan"
+                                    href="/kemitraan"
                                     onClick={() => setMenuOpen(false)}
                                     className="w-full flex items-center justify-between px-3 py-2 text-sm font-semibold rounded-xl text-slate-700 hover:bg-slate-50"
                                 >
                                     <div className="flex items-center gap-2">
                                         <FileText className="w-4 h-4 text-slate-500" />
-                                        <span>Pengajuan</span>
+                                        <span>Kemitraan</span>
                                     </div>
                                 </Link>
                             )}

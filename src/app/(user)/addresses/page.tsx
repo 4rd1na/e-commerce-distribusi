@@ -2,6 +2,8 @@
 
 import dynamic from "next/dynamic";
 
+import { useRouter } from "next/navigation";
+
 import { useEffect, useState } from "react";
 
 import {
@@ -56,6 +58,11 @@ const defaultPosition: [number, number] = [
 
 export default function AddressesPage() {
 
+    const router = useRouter();
+
+    const [checkingAuth, setCheckingAuth] =
+        useState(true);
+
     const [addresses, setAddresses] =
         useState<Address[]>([]);
 
@@ -87,10 +94,43 @@ export default function AddressesPage() {
         address_detail: "",
     });
 
+    // =========================
+    // CHECK LOGIN
+    // =========================
     useEffect(() => {
-        fetchAddresses();
+        checkUser();
     }, []);
 
+    const checkUser = async () => {
+
+        try {
+
+            const {
+                data: { user },
+            } = await supabase.auth.getUser();
+
+            if (!user) {
+
+                router.replace("/auth/login");
+
+                return;
+            }
+
+            await fetchAddresses();
+
+        } catch (error) {
+
+            console.error(error);
+
+        } finally {
+
+            setCheckingAuth(false);
+        }
+    };
+
+    // =========================
+    // FETCH ADDRESS
+    // =========================
     const fetchAddresses = async () => {
 
         try {
@@ -127,6 +167,9 @@ export default function AddressesPage() {
         }
     };
 
+    // =========================
+    // RESET FORM
+    // =========================
     const resetForm = () => {
 
         setForm({
@@ -145,6 +188,9 @@ export default function AddressesPage() {
         setEditingId(null);
     };
 
+    // =========================
+    // SUBMIT
+    // =========================
     const handleSubmit = async () => {
 
         try {
@@ -157,6 +203,18 @@ export default function AddressesPage() {
 
             if (!user) return;
 
+            // cek alamat pertama
+            const isFirstAddress =
+                !editingId &&
+                addresses.length === 0;
+
+            // ambil data lama kalau edit
+            const currentAddress =
+                addresses.find(
+                    (item) =>
+                        item.id === editingId
+                );
+
             const payload = {
                 user_id: user.id,
 
@@ -165,19 +223,34 @@ export default function AddressesPage() {
                 latitude: position[0],
 
                 longitude: position[1],
+
+                // kalau edit -> pertahankan default lama
+                // kalau insert pertama -> true
+                is_default: editingId
+                    ? currentAddress?.is_default || false
+                    : isFirstAddress,
             };
 
+            // ======================
+            // UPDATE
+            // ======================
             if (editingId) {
 
                 const { error } =
                     await supabase
                         .from("addresses")
                         .update(payload)
-                        .eq("id", editingId);
+                        .eq("id", editingId)
+                        .eq("user_id", user.id);
 
                 if (error) throw error;
 
-            } else {
+            }
+
+            // ======================
+            // INSERT
+            // ======================
+            else {
 
                 const { error } =
                     await supabase
@@ -204,6 +277,9 @@ export default function AddressesPage() {
         }
     };
 
+    // =========================
+    // EDIT
+    // =========================
     const handleEdit = (
         address: Address
     ) => {
@@ -247,50 +323,140 @@ export default function AddressesPage() {
         ]);
     };
 
+    // =========================
+    // DELETE
+    // =========================
     const handleDelete = async (
         id: string
     ) => {
 
-        const confirmDelete = confirm(
-            "Hapus alamat?"
-        );
+        try {
 
-        if (!confirmDelete) return;
+            const confirmDelete = confirm(
+                "Apakah yakin ingin menghapus alamat?"
+            );
 
-        await supabase
-            .from("addresses")
-            .delete()
-            .eq("id", id);
+            if (!confirmDelete) return;
 
-        fetchAddresses();
+            const {
+                data: { user },
+            } = await supabase.auth.getUser();
+
+            if (!user) return;
+
+            const deletedAddress =
+                addresses.find(
+                    (item) => item.id === id
+                );
+
+            const { error } =
+                await supabase
+                    .from("addresses")
+                    .delete()
+                    .eq("id", id)
+                    .eq("user_id", user.id);
+
+            if (error) throw error;
+
+            // kalau default dihapus
+            if (
+                deletedAddress?.is_default
+            ) {
+
+                const remaining =
+                    addresses.filter(
+                        (item) =>
+                            item.id !== id
+                    );
+
+                if (
+                    remaining.length > 0
+                ) {
+
+                    await supabase
+                        .from("addresses")
+                        .update({
+                            is_default: true,
+                        })
+                        .eq(
+                            "id",
+                            remaining[0].id
+                        )
+                        .eq(
+                            "user_id",
+                            user.id
+                        );
+                }
+            }
+
+            fetchAddresses();
+
+        } catch (error) {
+
+            console.error(error);
+        }
     };
 
+    // =========================
+    // SET DEFAULT
+    // =========================
     const handleSetDefault = async (
         id: string
     ) => {
 
-        const {
-            data: { user },
-        } = await supabase.auth.getUser();
+        try {
 
-        if (!user) return;
+            const {
+                data: { user },
+            } = await supabase.auth.getUser();
 
-        await supabase
-            .from("addresses")
-            .update({
-                is_default: false,
-            })
-            .eq("user_id", user.id);
+            if (!user) return;
 
-        await supabase
-            .from("addresses")
-            .update({
-                is_default: true,
-            })
-            .eq("id", id);
+            // reset semua default
+            const { error: resetError } =
+                await supabase
+                    .from("addresses")
+                    .update({
+                        is_default: false,
+                    })
+                    .eq("user_id", user.id);
 
-        fetchAddresses();
+            if (resetError)
+                throw resetError;
+
+            // set default baru
+            const { error: setError } =
+                await supabase
+                    .from("addresses")
+                    .update({
+                        is_default: true,
+                    })
+                    .eq("id", id)
+                    .eq("user_id", user.id);
+
+            if (setError)
+                throw setError;
+
+            fetchAddresses();
+
+        } catch (error) {
+
+            console.error(error);
+        }
     };
+
+    // =========================
+    // LOADING AUTH
+    // =========================
+    if (checkingAuth) {
+
+        return (
+            <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+                <p className="text-sm text-slate-500">
+                </p>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen bg-slate-50">
@@ -445,6 +611,7 @@ export default function AddressesPage() {
                             className="w-full mt-4 rounded-2xl border px-4 py-3 text-sm min-h-[100px]"
                         />
 
+                        {/* MAP */}
                         <div className="mt-4">
 
                             <div className="flex items-center gap-2 mb-3">
@@ -452,7 +619,7 @@ export default function AddressesPage() {
                                 <MapPin className="w-4 h-4 text-emerald-600" />
 
                                 <p className="text-sm font-medium">
-                                    Pilih Lokasi
+                                    Lokasi Pengiriman
                                 </p>
 
                             </div>
@@ -466,6 +633,7 @@ export default function AddressesPage() {
 
                         </div>
 
+                        {/* BUTTON */}
                         <div className="flex gap-3 mt-5">
 
                             <Button
@@ -498,7 +666,7 @@ export default function AddressesPage() {
                     </div>
                 )}
 
-                {/* LIST */}
+                {/* LIST ADDRESS */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
                     {loading ? (
@@ -545,24 +713,19 @@ export default function AddressesPage() {
                                         <p className="text-sm text-slate-700 mt-3 leading-relaxed">
                                             {
                                                 address.address_detail
-                                            }
-                                            ,{" "}
+                                            },{" "}
                                             {
                                                 address.village
-                                            }
-                                            ,{" "}
+                                            },{" "}
                                             {
                                                 address.district
-                                            }
-                                            ,{" "}
+                                            },{" "}
                                             {
                                                 address.city
-                                            }
-                                            ,{" "}
+                                            },{" "}
                                             {
                                                 address.province
-                                            }
-                                            {" "}
+                                            }{" "}
                                             {
                                                 address.postal_code
                                             }

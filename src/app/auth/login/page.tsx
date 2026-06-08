@@ -52,23 +52,16 @@ export default function LoginPage() {
 
         try {
             const { data: { user }, error } = await supabase.auth.verifyOtp({
-                email: email,
+                email,
                 token: otp,
                 type: "email",
             });
 
             if (error) throw error;
 
+            if (!user) return;
+
             if (user) {
-
-                await supabase.auth.refreshSession();
-
-                const {
-                    data: { session },
-                } = await supabase.auth.getSession();
-
-                console.log("SESSION:", session);
-
                 const { data: profile } = await supabase
                     .from("profiles")
                     .select("role, internal_role")
@@ -91,7 +84,7 @@ export default function LoginPage() {
                     if (profile?.role === "internal") {
 
                         if (profile.internal_role === "admin") {
-                            router.replace("/admin/products");
+                            router.replace("/admin");
                         }
                         else if (profile.internal_role === "support") {
                             router.replace("/support");
