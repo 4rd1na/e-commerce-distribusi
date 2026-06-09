@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,24 +18,16 @@ interface Profile {
 }
 
 export default function ProfilePage() {
-    const router = useRouter();
 
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [uploading, setUploading] = useState(false);
-
     const [user, setUser] = useState<any>(null);
-
-    const [profile, setProfile] =
-        useState<Profile | null>(null);
-
+    const [profile, setProfile] = useState<Profile | null>(null);
     const [fullName, setFullName] = useState("");
     const [email, setEmail] = useState("");
-    const [phoneNumber, setPhoneNumber] =
-        useState("");
-
-    const [avatarUrl, setAvatarUrl] =
-        useState("");
+    const [phoneNumber, setPhoneNumber] = useState("");
+    const [avatarUrl, setAvatarUrl] = useState("");
 
     useEffect(() => {
         getProfile();
@@ -50,10 +41,7 @@ export default function ProfilePage() {
                 data: { user },
             } = await supabase.auth.getUser();
 
-            if (!user) {
-                router.push("/auth/login");
-                return;
-            }
+            if (!user) return;
 
             setUser(user);
 

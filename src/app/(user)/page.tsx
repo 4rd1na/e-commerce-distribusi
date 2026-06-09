@@ -11,6 +11,7 @@ interface Variant {
   id: string;
   variant_name: string;
   base_price: number;
+  display_price: number;
   stock: number;
 }
 
@@ -26,6 +27,12 @@ interface Products {
   totalStock: number;
 }
 
+const sortOptions = {
+  terlaris: "Terlaris",
+  terbaru: "Terbaru",
+  terlama: "Terlama",
+};
+
 export default function ProductsPage() {
   const router = useRouter();
   const [products, setProducts] = useState<Products[]>([]);
@@ -33,15 +40,14 @@ export default function ProductsPage() {
   const [addingToCart, setAddingToCart] = useState<string | null>(null);
   const [categories, setCategories] = useState<{ id: string; name: string; slug: string }[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
-
-  // STATE BARU: Menyimpan pilihan sortir UI
   const [sortBy, setSortBy] = useState<string>("terlaris");
-
+  const [showToast, setShowToast] = useState<boolean>(false);
   const [selectedVariants, setSelectedVariants] = useState<{ [key: string]: string }>({});
 
   const searchParams = useSearchParams();
   const [searchLoading, setSearchLoading] = useState(false);
   const searchQuery = searchParams.get("search")?.toLowerCase() || "";
+  const [isSortOpen, setIsSortOpen] = useState<boolean>(false);
 
   useEffect(() => {
     setSearchLoading(true);
@@ -69,6 +75,17 @@ export default function ProductsPage() {
   const fetchProducts = async () => {
     try {
       setLoading(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      let userLevel = 'konsumen';
+      if (user) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("level")
+          .eq("id", user.id)
+          .single();
+        if (profile) userLevel = profile.level;
+      }
+
       const { data, error } = await supabase
         .from("products")
         .select(`
@@ -84,7 +101,11 @@ export default function ProductsPage() {
             id,
             variant_name,
             base_price,
-            inventory_stocks ( qty )
+            inventory_stocks ( qty ),
+            product_variant_prices (
+              price,
+              level
+            )
           )
         `)
         .eq("is_active", true);
@@ -95,10 +116,12 @@ export default function ProductsPage() {
         const formattedProducts: Products[] = data.map((p: any) => {
           const variants: Variant[] = p.product_variants?.map((v: any) => {
             const variantStock = v.inventory_stocks?.reduce((acc: number, s: any) => acc + (s.qty || 0), 0) || 0;
+            const specialPriceObj = v.product_variant_prices?.find((pPrice: any) => pPrice.level === userLevel);
             return {
               id: v.id,
               variant_name: v.variant_name,
               base_price: Number(v.base_price || 0),
+              display_price: specialPriceObj ? Number(specialPriceObj.price) : Number(v.base_price || 0),
               stock: variantStock
             };
           }) || [];
@@ -149,7 +172,7 @@ export default function ProductsPage() {
     }
   };
 
-  const handleAddToCart = async (product: Products) => {
+  const handleAddToCart = async (product: Products, redirectToCart: boolean = false) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
@@ -158,7 +181,7 @@ export default function ProductsPage() {
       }
 
       const variantId = selectedVariants[product.id];
-      if (!variantId) return alert("Silakan pilih varian terlebih dahulu.");
+      if (!variantId) return;
 
       setAddingToCart(variantId);
 
@@ -207,6 +230,14 @@ export default function ProductsPage() {
 
       window.dispatchEvent(new Event("cart-updated"));
 
+      if (redirectToCart) {
+        router.push("/carts");
+      } else {
+        setShowToast(true);
+        setTimeout(() => {
+          setShowToast(false);
+        }, 2000);
+      }
     } catch (error) {
       console.error("Gagal menambah ke keranjang:", error);
       alert("Gagal menambahkan produk ke keranjang");
@@ -265,22 +296,49 @@ export default function ProductsPage() {
           </div>
         </div>
 
-        {/* SISI KANAN: DROPDOWN SORTIR (MANDIRI & ANTI-TABRAKAN) */}
-        <div className="flex items-center gap-2 border-t border-slate-100 pt-3 sm:border-t-0 sm:pt-0 shrink-0">
-          <div className="relative flex items-center bg-slate-50 border border-slate-200 rounded-xl px-2.5 h-8">
-            <ArrowUpDown className="w-3.5 h-3.5 text-slate-400 mr-1.5 shrink-0" />
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              className="bg-transparent text-xs font-medium outline-none text-slate-700 pr-4 cursor-pointer appearance-none"
-            >
-              <option value="terlaris">Terlaris</option>
-              <option value="terbaru">Terbaru</option>
-              <option value="terlama">Terlama</option>
-            </select>
-            {/* Dekorasi tanda panah custom dropdown */}
-            <div className="absolute right-2.5 pointer-events-none text-[10px] text-slate-400">▼</div>
-          </div>
+        {/* SISI KANAN: DROPDOWN SORTIR (CUSTOM MODERN) */}
+        <div className="relative shrink-0">
+          {/* Tombol Utama Pemicu Dropdown */}
+          <button
+            onClick={() => setIsSortOpen(!isSortOpen)}
+            className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 h-8 text-xs font-semibold text-slate-700 hover:bg-slate-100 hover:border-slate-300 transition shadow-sm"
+          >
+            <ArrowUpDown className="w-3.5 h-3.5 text-slate-500" />
+            <span>{sortOptions[sortBy as keyof typeof sortOptions]}</span>
+            <span className={`text-[9px] text-slate-400 transition-transform duration-200 ${isSortOpen ? "rotate-180" : ""}`}>
+              ▼
+            </span>
+          </button>
+
+          {/* Menu Pilihan Terapung (Floating Menu) */}
+          {isSortOpen && (
+            <>
+              {/* Backdrop Transparan: Jika user klik di luar dropdown, otomatis menutup menu */}
+              <div
+                className="fixed inset-0 z-10"
+                onClick={() => setIsSortOpen(false)}
+              />
+
+              {/* Kotak Pilihan Konten */}
+              <div className="absolute right-0 mt-1.5 w-36 bg-white border border-slate-200 rounded-xl shadow-lg py-1 z-20 animate-in fade-in slide-in-from-top-1 duration-100">
+                {Object.entries(sortOptions).map(([value, label]) => (
+                  <button
+                    key={value}
+                    onClick={() => {
+                      setSortBy(value);
+                      setIsSortOpen(false); // Otomatis tutup setelah memilih
+                    }}
+                    className={`w-full text-left px-3.5 py-2 text-xs font-medium transition-colors ${sortBy === value
+                      ? "bg-emerald-50 text-emerald-600 font-semibold"
+                      : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                      }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
         </div>
 
       </div>
@@ -300,7 +358,7 @@ export default function ProductsPage() {
           {filteredProducts.map((p) => {
             const currentVariantId = selectedVariants[p.id];
             const currentVariant = p.variants.find(v => v.id === currentVariantId) || p.variants[0];
-            const price = currentVariant ? currentVariant.base_price : 0;
+            const price = currentVariant ? (currentVariant.display_price || currentVariant.base_price) : 0;
             const stock = currentVariant ? currentVariant.stock : 0;
 
             return (
@@ -386,6 +444,21 @@ export default function ProductsPage() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {showToast && (
+        <div className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none animate-in fade-in zoom-in-95 duration-200">
+          <div className="bg-slate-900/90 text-white px-5 py-3 rounded-xl shadow-xl flex flex-col items-center gap-1.5 max-w-xs text-center backdrop-blur-sm">
+            <div className="w-7 h-7 bg-emerald-500 rounded-full flex items-center justify-center shadow-inner">
+              <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <p className="text-xs font-medium tracking-wide">
+              Berhasil dimasukkan ke keranjang
+            </p>
+          </div>
         </div>
       )}
     </div>

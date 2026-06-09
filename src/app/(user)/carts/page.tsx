@@ -5,6 +5,16 @@ import { supabase } from "@/lib/supabase/client";
 import { Trash2, Plus, Minus, ArrowLeft, ShoppingBag } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface CartItem {
     id: string;
@@ -20,6 +30,10 @@ export default function CartPage() {
     const [items, setItems] = useState<CartItem[]>([]);
     const [loading, setLoading] = useState(true);
 
+    // State baru untuk mengatur buka-tutup dialog & mencatat item mana yang mau dihapus
+    const [isDialogOpen, setIsDialogOpen] = useState(false);
+    const [itemToDelete, setItemToDelete] = useState<string | null>(null);
+
     useEffect(() => {
         fetchCart();
     }, []);
@@ -29,7 +43,6 @@ export default function CartPage() {
             setLoading(true);
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
-
             // 1. Dapatkan Cart ID
             const { data: cart } = await supabase
                 .from("carts")
@@ -84,9 +97,9 @@ export default function CartPage() {
     const updateQuantity = async (itemId: string, currentQty: number, delta: number) => {
         const newQty = currentQty + delta;
         if (newQty <= 0) {
-            const confirmDelete = window.confirm("Yakin ingin menghapus produk dari keranjang?");
-            if (!confirmDelete) return;
-            handleDeleteItem(itemId, true);
+            // Mengganti window.confirm dengan trigger dialog Shadcn UI
+            setItemToDelete(itemId);
+            setIsDialogOpen(true);
             return;
         }
 
@@ -107,11 +120,7 @@ export default function CartPage() {
         }
     };
 
-    const handleDeleteItem = async (itemId: string, bypassConfirm = false) => {
-        if (!bypassConfirm) {
-            const confirmDelete = window.confirm("Yakin ingin menghapus produk dari keranjang?");
-            if (!confirmDelete) return; // Batalkan proses jika klik 'Cancel'
-        }
+    const handleDeleteItem = async (itemId: string) => {
         try {
             setItems(prev => prev.filter(item => item.id !== itemId));
 
@@ -126,6 +135,15 @@ export default function CartPage() {
             console.error(err);
             fetchCart();
         }
+    };
+
+    // Fungsi trigger konfirmasi aksi dari modal dialog
+    const confirmDeleteAction = () => {
+        if (itemToDelete) {
+            handleDeleteItem(itemToDelete);
+            setItemToDelete(null);
+        }
+        setIsDialogOpen(false);
     };
 
     const totalPrice = items.reduce((acc, item) => acc + (item.base_price * item.qty), 0);
@@ -195,7 +213,13 @@ export default function CartPage() {
                                     </button>
                                 </div>
 
-                                <button onClick={() => handleDeleteItem(item.id)} className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition">
+                                <button
+                                    onClick={() => {
+                                        setItemToDelete(item.id);
+                                        setIsDialogOpen(true);
+                                    }}
+                                    className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition"
+                                >
                                     <Trash2 className="w-4 h-4" />
                                 </button>
                             </div>
@@ -222,6 +246,37 @@ export default function CartPage() {
                     </Button>
                 </div>
             </div>
+
+            {/* INTEGRASI SHADCN UI DIALOG */}
+            <AlertDialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                <AlertDialogContent className="rounded-2xl max-w-[90%] sm:max-w-md">
+                    <AlertDialogHeader>
+                        <AlertDialogTitle className="text-base font-bold text-slate-900">
+                            Hapus dari Keranjang?
+                        </AlertDialogTitle>
+                        <AlertDialogDescription className="text-xs text-slate-500">
+                            Produk ini akan dihapus dari daftar keranjang belanjamu. Kamu harus memasukkannya kembali jika ingin membelinya nanti.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter className="flex-row gap-2 justify-end mt-2">
+                        <AlertDialogCancel
+                            onClick={() => {
+                                setIsDialogOpen(false);
+                                setItemToDelete(null);
+                            }}
+                            className="text-xs font-semibold h-9 rounded-xl border-slate-200 text-slate-600 mt-0 flex-1 sm:flex-none"
+                        >
+                            Batal
+                        </AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={confirmDeleteAction}
+                            className="text-xs font-semibold h-9 rounded-xl bg-rose-600 hover:bg-rose-700 text-white flex-1 sm:flex-none"
+                        >
+                            Ya, Hapus
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }

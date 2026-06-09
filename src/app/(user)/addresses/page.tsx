@@ -2,8 +2,6 @@
 
 import dynamic from "next/dynamic";
 
-import { useRouter } from "next/navigation";
-
 import { useEffect, useState } from "react";
 
 import {
@@ -58,11 +56,6 @@ const defaultPosition: [number, number] = [
 
 export default function AddressesPage() {
 
-    const router = useRouter();
-
-    const [checkingAuth, setCheckingAuth] =
-        useState(true);
-
     const [addresses, setAddresses] =
         useState<Address[]>([]);
 
@@ -95,38 +88,11 @@ export default function AddressesPage() {
     });
 
     // =========================
-    // CHECK LOGIN
+    // FETCH DATA
     // =========================
     useEffect(() => {
-        checkUser();
+        fetchAddresses();
     }, []);
-
-    const checkUser = async () => {
-
-        try {
-
-            const {
-                data: { user },
-            } = await supabase.auth.getUser();
-
-            if (!user) {
-
-                router.replace("/auth/login");
-
-                return;
-            }
-
-            await fetchAddresses();
-
-        } catch (error) {
-
-            console.error(error);
-
-        } finally {
-
-            setCheckingAuth(false);
-        }
-    };
 
     // =========================
     // FETCH ADDRESS
@@ -444,19 +410,6 @@ export default function AddressesPage() {
             console.error(error);
         }
     };
-
-    // =========================
-    // LOADING AUTH
-    // =========================
-    if (checkingAuth) {
-
-        return (
-            <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-                <p className="text-sm text-slate-500">
-                </p>
-            </div>
-        );
-    }
 
     return (
         <div className="min-h-screen bg-slate-50">
