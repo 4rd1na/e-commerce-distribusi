@@ -1,10 +1,30 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Upload, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Upload, AlertCircle, CheckCircle2, Clock, XCircle, Crown } from "lucide-react";
+
+// Label helper
+const levelLabels: Record<string, string> = {
+    konsumen: "Konsumen",
+    reseller: "Reseller",
+    sub_agen: "Sub Agen",
+    agen: "Agen",
+    distributor: "Distributor",
+};
+
+// Hierarki level — untuk cek apakah sudah di level yang lebih tinggi
+const levelOrder = ["konsumen", "reseller", "sub_agen", "agen", "distributor"];
+
+interface ExistingRequest {
+    id: string;
+    requested_level: string;
+    status: "pending" | "approved" | "rejected";
+    created_at: string;
+}
 
 export default function PartnerRequestPage() {
     const router = useRouter();
@@ -12,25 +32,70 @@ export default function PartnerRequestPage() {
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
 
+    // State untuk cek pengajuan yang sudah ada
+    const [currentLevel, setCurrentLevel] = useState("konsumen");
+    const [pendingRequest, setPendingRequest] = useState<ExistingRequest | null>(null);
+    const [initialLoading, setInitialLoading] = useState(true);
+
     // Form State
     const [requestedLevel, setRequestedLevel] = useState("reseller");
     const [companyName, setCompanyName] = useState("");
     const [notes, setNotes] = useState("");
     const [file, setFile] = useState<File | null>(null);
 
+    // ── Cek level saat ini & pengajuan pending ──
+    useEffect(() => {
+        checkExistingData();
+    }, []);
+
+    const checkExistingData = async () => {
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            // Ambil level saat ini dari profiles
+            const { data: profile } = await supabase
+                .from("profiles")
+                .select("level")
+                .eq("id", user.id)
+                .single();
+
+            if (profile) {
+                setCurrentLevel(profile.level);
+            }
+
+            // Cek apakah ada pengajuan yang masih pending
+            const { data: requests } = await supabase
+                .from("partner_requests")
+                .select("id, requested_level, status, created_at")
+                .eq("user_id", user.id)
+                .eq("status", "pending")
+                .order("created_at", { ascending: false })
+                .limit(1);
+
+            if (requests && requests.length > 0) {
+                setPendingRequest(requests[0]);
+            }
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setInitialLoading(false);
+        }
+    };
+
+    // ── Submit pengajuan ──
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
         setErrorMsg(null);
 
         try {
-            // 1. Dapatkan session user
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
 
             let attachmentUrl = null;
 
-            // 2. Upload file bukti jika ada
+            // Upload file bukti jika ada
             if (file) {
                 const fileExt = file.name.split('.').pop();
                 const fileName = `${user.id}-${Date.now()}.${fileExt}`;
@@ -42,7 +107,6 @@ export default function PartnerRequestPage() {
 
                 if (uploadError) throw uploadError;
 
-                // Dapatkan Public URL nya
                 const { data: { publicUrl } } = supabase.storage
                     .from("partner-attachments")
                     .getPublicUrl(filePath);
@@ -50,7 +114,7 @@ export default function PartnerRequestPage() {
                 attachmentUrl = publicUrl;
             }
 
-            // 3. Simpan data pengajuan ke table partner_requests
+            // Simpan data pengajuan ke table partner_requests
             const { error: insertError } = await supabase
                 .from("partner_requests")
                 .insert({
@@ -59,7 +123,7 @@ export default function PartnerRequestPage() {
                     company_name: companyName || null,
                     notes: notes || null,
                     attachment_url: attachmentUrl,
-                    status: "pending" // Default status sesuai Enum schema
+                    status: "pending",
                 });
 
             if (insertError) throw insertError;
@@ -73,6 +137,23 @@ export default function PartnerRequestPage() {
         }
     };
 
+    // ── Loading awal ──
+    if (initialLoading) {
+        return (
+            <div className="max-w-xl mx-auto my-8 p-4 md:p-8 bg-white border border-slate-200 rounded-2xl shadow-sm animate-pulse">
+                <div className="h-7 bg-slate-200 rounded w-48 mb-2" />
+                <div className="h-4 bg-slate-200 rounded w-72 mb-6" />
+                <div className="space-y-5">
+                    <div className="h-11 bg-slate-200 rounded-xl" />
+                    <div className="h-11 bg-slate-200 rounded-xl" />
+                    <div className="h-24 bg-slate-200 rounded-xl" />
+                    <div className="h-24 bg-slate-200 rounded-xl" />
+                </div>
+            </div>
+        );
+    }
+
+    // ── Sukses ──
     if (success) {
         return (
             <div className="max-w-md mx-auto my-12 p-6 bg-white border border-slate-200 rounded-2xl shadow-sm text-center">
@@ -88,6 +169,65 @@ export default function PartnerRequestPage() {
         );
     }
 
+    // ── Sudah ada pengajuan pending ──
+    if (pendingRequest) {
+        return (
+            <div className="max-w-md mx-auto my-12 p-6 bg-white border border-slate-200 rounded-2xl shadow-sm text-center">
+                <div className="w-16 h-16 bg-yellow-50 border border-yellow-200 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Clock className="w-7 h-7 text-yellow-500" />
+                </div>
+                <h2 className="text-xl font-bold text-slate-900 mb-2">Pengajuan Sedang Diproses</h2>
+                <p className="text-slate-600 text-sm mb-4">
+                    Anda sudah mengajukan level{" "}
+                    <span className="font-semibold text-emerald-600">
+                        {levelLabels[pendingRequest.requested_level]}
+                    </span>
+                    {" "}pada{" "}
+                    <span className="font-medium">
+                        {new Date(pendingRequest.created_at).toLocaleDateString("id-ID", {
+                            day: "numeric",
+                            month: "long",
+                            year: "numeric",
+                        })}
+                    </span>.
+                </p>
+                <p className="text-xs text-slate-400 mb-6">
+                    Mohon tunggu konfirmasi dari Admin DinaMart.
+                </p>
+                <Button onClick={() => router.push("/")} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl">
+                    Kembali ke Beranda
+                </Button>
+            </div>
+        );
+    }
+
+    // ── Filter level yang bisa diajukan (hanya yang lebih tinggi dari level saat ini) ──
+    const currentLevelIndex = levelOrder.indexOf(currentLevel);
+    const availableLevels = levelOrder.filter((_, i) => i > currentLevelIndex);
+
+    // ── Sudah di level tertinggi ──
+    if (availableLevels.length === 0) {
+        return (
+            <div className="max-w-md mx-auto my-12 p-6 bg-white border border-slate-200 rounded-2xl shadow-sm text-center">
+                <div className="w-16 h-16 bg-emerald-50 border border-emerald-200 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Crown className="w-7 h-7 text-emerald-500" />
+                </div>
+                <h2 className="text-xl font-bold text-slate-900 mb-2">Level Tertinggi Tercapai!</h2>
+                <p className="text-slate-600 text-sm mb-6">
+                    Anda sudah berada di level{" "}
+                    <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 text-xs">
+                        {levelLabels[currentLevel]}
+                    </Badge>
+                    {" "}— level tertinggi dalam sistem kemitraan DinaMart.
+                </p>
+                <Button onClick={() => router.push("/")} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl">
+                    Kembali ke Beranda
+                </Button>
+            </div>
+        );
+    }
+
+    // ── Form Pengajuan ──
     return (
         <div className="max-w-xl mx-auto my-8 p-4 md:p-8 bg-white border border-slate-200 rounded-2xl shadow-sm">
             <div className="mb-6">
@@ -95,6 +235,19 @@ export default function PartnerRequestPage() {
                 <p className="text-sm text-slate-500 mt-1">
                     Kembangkan bisnis Anda bersama DinaMart dengan jenjang tingkat harga yang lebih menguntungkan.
                 </p>
+            </div>
+
+            {/* Info level saat ini */}
+            <div className="mb-5 p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center gap-3">
+                <div className="w-9 h-9 bg-white border rounded-lg flex items-center justify-center">
+                    <Crown className="w-4 h-4 text-slate-400" />
+                </div>
+                <div>
+                    <p className="text-xs text-slate-400">Level Anda saat ini</p>
+                    <p className="text-sm font-semibold text-slate-800">
+                        {levelLabels[currentLevel]}
+                    </p>
+                </div>
             </div>
 
             {errorMsg && (
@@ -113,10 +266,11 @@ export default function PartnerRequestPage() {
                         onChange={(e) => setRequestedLevel(e.target.value)}
                         className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-800"
                     >
-                        <option value="reseller">Reseller</option>
-                        <option value="sub_agen">Sub Agen</option>
-                        <option value="agen">Agen</option>
-                        <option value="distributor">Distributor</option>
+                        {availableLevels.map((level) => (
+                            <option key={level} value={level}>
+                                {levelLabels[level]}
+                            </option>
+                        ))}
                     </select>
                 </div>
 

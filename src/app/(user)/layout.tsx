@@ -4,6 +4,9 @@ import { createClient } from "@/lib/supabase/server";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 
+// Route yang TIDAK menampilkan Footer
+const HIDE_FOOTER_ROUTES = ["/carts"];
+
 // Route user yang WAJIB login
 const PROTECTED_USER_ROUTES = [
     "/profile",
@@ -50,11 +53,15 @@ export default async function CustomerGroupLayout({
         }
     }
 
+    const hideFooter = HIDE_FOOTER_ROUTES.some((p) =>
+        pathname.startsWith(p)
+    );
+
     return (
         <div className="min-h-screen flex flex-col bg-slate-50">
             <Header />
             <main className="flex-1">{children}</main>
-            <Footer />
+            {!hideFooter && <Footer />}
         </div>
     );
 }

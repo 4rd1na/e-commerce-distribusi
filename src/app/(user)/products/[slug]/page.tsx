@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { ShoppingBag, ShoppingCart } from "lucide-react";
+import { useEffect, useState, useRef } from "react";
+import { ShoppingBag, ShoppingCart, ChevronLeft, ChevronRight } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -24,6 +24,10 @@ export default function ProductDetailPage() {
     const [loading, setLoading] = useState<boolean>(true);
     const [addingToCart, setAddingToCart] = useState<boolean>(false);
     const [showToast, setShowToast] = useState<boolean>(false);
+    const [activeIdx, setActiveIdx] = useState<number>(0);
+
+    // KUNCI SMOOTH: Ref untuk mengontrol container scroll secara programmatik
+    const sliderRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         fetchProduct();
@@ -54,6 +58,11 @@ export default function ProductDetailPage() {
                     product_categories (
                         name
                     ),
+                    product_galleries (
+                        media_url,
+                        media_type,
+                        position
+                    ),
                     product_variants (
                         id,
                         variant_name,
@@ -69,34 +78,34 @@ export default function ProductDetailPage() {
                 `)
                 .eq("slug", params.slug)
                 .eq("is_active", true)
+                .order("position", { foreignTable: "product_galleries", ascending: true })
                 .single();
 
-            if (error) throw error;
+            if (error) {
+                if (error.code === '42501') {
+                    console.warn("Akses product_galleries ditolak (RLS). Mengambil data produk dasar saja...");
+                    const { data: basicData, error: basicError } = await supabase
+                        .from("products")
+                        .select(`
+                            *,
+                            product_categories (name),
+                            product_variants (
+                                id, variant_name, base_price,
+                                inventory_stocks (qty),
+                                product_variant_prices (price, level)
+                            )
+                        `)
+                        .eq("slug", params.slug)
+                        .eq("is_active", true)
+                        .single();
 
-            if (data) {
-                // 3. Format harga varian berdasarkan level user saat ini
-                const formattedVariants = data.product_variants?.map((v: any) => {
-                    // Cari apakah ada harga khusus level akun di tabel product_variant_prices
-                    const specialPriceObj = v.product_variant_prices?.find((p: any) => p.level === userLevel);
-                    return {
-                        id: v.id,
-                        variant_name: v.variant_name,
-                        base_price: Number(v.base_price || 0),
-                        inventory_stocks: v.inventory_stocks || [],
-                        display_price: specialPriceObj ? Number(specialPriceObj.price) : Number(v.base_price || 0)
-                    };
-                }) || [];
-
-                const formattedProduct = {
-                    ...data,
-                    product_variants: formattedVariants
-                };
-
-                setProduct(formattedProduct);
-
-                if (formattedVariants.length > 0) {
-                    setSelectedVariant(formattedVariants[0]);
+                    if (basicError) throw basicError;
+                    handleSetupProduct(basicData, userLevel);
+                } else {
+                    throw error;
                 }
+            } else if (data) {
+                handleSetupProduct(data, userLevel);
             }
         } catch (error) {
             console.error("Gagal mengambil detail produk:", error);
@@ -105,21 +114,47 @@ export default function ProductDetailPage() {
         }
     };
 
-    // FUNGSI UTAMA: Tambah Ke Keranjang (Mengikuti logika ProductsPage)
+    const handleSetupProduct = (data: any, userLevel: string) => {
+        const formattedVariants = data.product_variants?.map((v: any) => {
+            const specialPriceObj = v.product_variant_prices?.find((p: any) => p.level === userLevel);
+            return {
+                id: v.id,
+                variant_name: v.variant_name,
+                base_price: Number(v.base_price || 0),
+                inventory_stocks: v.inventory_stocks || [],
+                display_price: specialPriceObj ? Number(specialPriceObj.price) : Number(v.base_price || 0)
+            };
+        }) || [];
+
+        const formattedProduct = {
+            ...data,
+            product_variants: formattedVariants
+        };
+
+        setProduct(formattedProduct);
+        setActiveIdx(0);
+
+        const firstAvailableVariant = formattedVariants.find((v: any) =>
+            (v.inventory_stocks?.reduce((a: number, b: any) => a + b.qty, 0) || 0) > 0
+        );
+
+        if (formattedVariants.length > 0) {
+            setSelectedVariant(firstAvailableVariant || formattedVariants[0]);
+        }
+    };
+
     const handleAddToCart = async (redirectToCart: boolean = false) => {
         if (!selectedVariant) return;
 
         try {
             setAddingToCart(true);
 
-            // 1. Validasi Autentikasi User
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) {
                 router.push("/auth/login");
                 return;
             }
 
-            // 2. Cari atau Buat Keranjang Aktif (Carts) milik user
             let { data: cart } = await supabase
                 .from("carts")
                 .select("id")
@@ -137,7 +172,6 @@ export default function ProductDetailPage() {
                 cart = newCart;
             }
 
-            // 3. Periksa apakah item varian yang sama sudah ada di keranjang
             const { data: existingItem } = await supabase
                 .from("cart_items")
                 .select("id, qty")
@@ -146,7 +180,6 @@ export default function ProductDetailPage() {
                 .maybeSingle();
 
             if (existingItem) {
-                // Jika ada, tambahkan quantity (+1)
                 const { error: updateError } = await supabase
                     .from("cart_items")
                     .update({ qty: existingItem.qty + 1 })
@@ -154,7 +187,6 @@ export default function ProductDetailPage() {
 
                 if (updateError) throw updateError;
             } else {
-                // Jika belum ada, buat baris item baru
                 const { error: insertError } = await supabase
                     .from("cart_items")
                     .insert({
@@ -166,7 +198,6 @@ export default function ProductDetailPage() {
                 if (insertError) throw insertError;
             }
 
-            // 4. Trigger event global untuk memperbarui badge jumlah di header (jika ada)
             window.dispatchEvent(new Event("cart-updated"));
 
             if (redirectToCart) {
@@ -186,6 +217,30 @@ export default function ProductDetailPage() {
         }
     };
 
+    // FUNGSI NAVIGASI SLIDER BARU: Agar perpindahan media animasi gesernya halus
+    const scrollToIdx = (idx: number) => {
+        if (!sliderRef.current) return;
+        const container = sliderRef.current;
+        const width = container.clientWidth;
+
+        container.scrollTo({
+            left: idx * width,
+            behavior: "smooth" // Efek animasi transisi geser horizontal halus
+        });
+        setActiveIdx(idx);
+    };
+
+    // Fungsi handle jika pembeli swiping manual lewat layar touchscreen HP
+    const handleScrollDetect = (e: any) => {
+        const container = e.currentTarget;
+        const scrollLeft = container.scrollLeft;
+        const width = container.clientWidth;
+        const newIdx = Math.round(scrollLeft / width);
+        if (newIdx !== activeIdx && newIdx >= 0) {
+            setActiveIdx(newIdx);
+        }
+    };
+
     if (loading) {
         return (
             <div className="p-12 text-center text-sm text-slate-400 font-medium animate-pulse">
@@ -202,7 +257,10 @@ export default function ProductDetailPage() {
         );
     }
 
-    // Hitung total akumulasi stok dari gudang untuk varian yang dipilih
+    const productMedia = product?.product_galleries && product.product_galleries.length > 0
+        ? product.product_galleries
+        : [{ media_url: product?.image_url || "/placeholder.png", media_type: "image" }];
+
     const stock = selectedVariant?.inventory_stocks?.reduce(
         (a, b) => a + b.qty,
         0
@@ -212,13 +270,100 @@ export default function ProductDetailPage() {
         <div className="container mx-auto px-4 py-4 md:py-8 max-w-5xl">
             <div className="grid md:grid-cols-2 gap-6 lg:gap-10 items-start">
 
-                {/* IMAGE CONTAINER */}
-                <div className="rounded-2xl overflow-hidden border border-slate-100 bg-slate-50 aspect-[4/3] md:aspect-square w-full max-h-[400px] md:max-h-[480px] flex items-center justify-center shadow-sm">
-                    <img
-                        src={product.image_url || "/placeholder.png"}
-                        alt={product.name}
-                        className="w-full h-full object-cover"
-                    />
+                {/* IMAGE & VIDEO MULTI-SLIDER (ALA SHOPEE - SMOOTH VERSION) */}
+                <div className="w-full space-y-3">
+
+                    {/* Frame Utama Media */}
+                    <div className="relative aspect-square bg-slate-50 border border-slate-100 rounded-2xl overflow-hidden group shadow-sm">
+
+                        {/* Container Horizontal Scroll dengan Snap CSS */}
+                        <div
+                            ref={sliderRef}
+                            onScroll={handleScrollDetect}
+                            className="w-full h-full flex overflow-x-auto snap-x snap-mandatory scrollbar-none"
+                        >
+                            {productMedia.map((mediaItem: any, idx: number) => (
+                                <div
+                                    key={idx}
+                                    className="w-full h-full shrink-0 snap-center flex items-center justify-center relative"
+                                >
+                                    {mediaItem?.media_type === "video" ? (
+                                        <video
+                                            src={mediaItem?.media_url}
+                                            controls
+                                            playsInline
+                                            className="w-full h-full object-contain bg-slate-950"
+                                        />
+                                    ) : (
+                                        <img
+                                            src={mediaItem?.media_url}
+                                            alt={`${product.name}-${idx}`}
+                                            className="w-full h-full object-cover"
+                                        />
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Tombol Panah Kiri & Kanan */}
+                        {productMedia.length > 1 && (
+                            <>
+                                <button
+                                    onClick={() => {
+                                        const prevIdx = activeIdx === 0 ? productMedia.length - 1 : activeIdx - 1;
+                                        scrollToIdx(prevIdx);
+                                    }}
+                                    className="absolute left-3 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-white/80 hover:bg-white border border-slate-200 flex items-center justify-center text-slate-700 shadow opacity-0 group-hover:opacity-100 transition duration-200"
+                                >
+                                    <ChevronLeft className="w-4 h-4" />
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        const nextIdx = activeIdx === productMedia.length - 1 ? 0 : activeIdx + 1;
+                                        scrollToIdx(nextIdx);
+                                    }}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-white/80 hover:bg-white border border-slate-200 flex items-center justify-center text-slate-700 shadow opacity-0 group-hover:opacity-100 transition duration-200"
+                                >
+                                    <ChevronRight className="w-4 h-4" />
+                                </button>
+                            </>
+                        )}
+
+                        {/* Indikator Angka */}
+                        {productMedia.length > 1 && (
+                            <div className="absolute right-3 bottom-3 z-10 bg-slate-950/60 backdrop-blur-sm text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full tracking-wider">
+                                {activeIdx + 1}/{productMedia.length}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Barisan Thumbnail Kecil di Bawah Frame Utama */}
+                    {productMedia.length > 1 && (
+                        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+                            {productMedia.map((mediaItem: any, idx: number) => (
+                                <button
+                                    key={idx}
+                                    onClick={() => scrollToIdx(idx)}
+                                    className={`relative w-16 h-16 rounded-lg border-2 overflow-hidden bg-slate-50 shrink-0 transition-all ${activeIdx === idx
+                                        ? "border-emerald-600 shadow-sm scale-95"
+                                        : "border-slate-200 hover:border-slate-300"
+                                        }`}
+                                >
+                                    {mediaItem.media_type === "video" ? (
+                                        <div className="w-full h-full flex items-center justify-center bg-slate-900 text-white relative">
+                                            <div className="absolute inset-0 bg-black/20 flex items-center justify-center text-xs">▶</div>
+                                        </div>
+                                    ) : (
+                                        <img
+                                            src={mediaItem.media_url}
+                                            alt="Thumbnail"
+                                            className="w-full h-full object-cover"
+                                        />
+                                    )}
+                                </button>
+                            ))}
+                        </div>
+                    )}
                 </div>
 
                 {/* CONTENT CONTAINER */}
@@ -235,7 +380,6 @@ export default function ProductDetailPage() {
                     {/* PRICE & STOCK INFO */}
                     <div className="bg-slate-50/70 p-3 rounded-xl border border-slate-100">
                         <div className="text-xl md:text-2xl font-extrabold text-emerald-600">
-                            {/* Menggunakan display_price agar dinamis menyesuaikan level */}
                             Rp {Number(selectedVariant?.display_price || selectedVariant?.base_price || 0).toLocaleString("id-ID")}
                         </div>
                         <div className={`text-xs mt-1 font-medium ${stock > 0 ? "text-slate-500" : "text-red-500"}`}>
@@ -250,18 +394,31 @@ export default function ProductDetailPage() {
                                 Pilih Varian
                             </label>
                             <div className="flex flex-wrap gap-1.5">
-                                {product.product_variants.map((variant: Variant) => (
-                                    <button
-                                        key={variant.id}
-                                        onClick={() => setSelectedVariant(variant)}
-                                        className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-all duration-200 ${selectedVariant?.id === variant.id
-                                            ? "bg-emerald-600 border-emerald-600 text-white shadow-sm"
-                                            : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
-                                            }`}
-                                    >
-                                        {variant.variant_name}
-                                    </button>
-                                ))}
+                                {product.product_variants.map((variant: Variant) => {
+                                    // 1. Hitung stok untuk varian ini
+                                    const variantStock = variant.inventory_stocks?.reduce(
+                                        (a, b) => a + b.qty,
+                                        0
+                                    ) || 0;
+
+                                    const isOutOfStock = variantStock === 0;
+
+                                    return (
+                                        <button
+                                            key={variant.id}
+                                            disabled={isOutOfStock} // 2. Kunci tombol jika stok habis
+                                            onClick={() => setSelectedVariant(variant)}
+                                            className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-all duration-200 ${selectedVariant?.id === variant.id
+                                                ? "bg-emerald-600 border-emerald-600 text-white shadow-sm"
+                                                : isOutOfStock
+                                                    ? "border-slate-200 bg-slate-100 text-slate-600 cursor-not-allowed opacity-60" // 3. Styling jika habis
+                                                    : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+                                                }`}
+                                        >
+                                            {variant.variant_name}
+                                        </button>
+                                    );
+                                })}
                             </div>
                         </div>
                     )}
@@ -278,7 +435,6 @@ export default function ProductDetailPage() {
 
                     {/* ACTION BUTTONS */}
                     <div className="flex sm:flex-row gap-2 pt-1">
-                        {/* BUTTON: TAMBAH KERANJANG */}
                         <button
                             disabled={stock === 0 || addingToCart}
                             onClick={() => handleAddToCart(false)}
@@ -288,7 +444,6 @@ export default function ProductDetailPage() {
                             {addingToCart ? "Memproses..." : "Keranjang"}
                         </button>
 
-                        {/* BUTTON: BELI SEKARANG */}
                         <Button
                             disabled={stock === 0 || addingToCart}
                             onClick={() => handleAddToCart(true)}
@@ -298,7 +453,6 @@ export default function ProductDetailPage() {
                             Beli Sekarang
                         </Button>
                     </div>
-
                 </div>
             </div>
 
@@ -306,7 +460,6 @@ export default function ProductDetailPage() {
             {showToast && (
                 <div className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none animate-in fade-in zoom-in-95 duration-200">
                     <div className="bg-slate-900/90 text-white px-5 py-3 rounded-xl shadow-xl flex flex-col items-center gap-1.5 max-w-xs text-center backdrop-blur-sm">
-                        {/* Icon centang hijau kecil yang manis */}
                         <div className="w-7 h-7 bg-emerald-500 rounded-full flex items-center justify-center shadow-inner">
                             <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" />

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { X, LayoutDashboard, ShoppingBag } from "lucide-react";
+import { X, LayoutDashboard, ShoppingBag, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface AdminSidebarProps {
@@ -23,6 +23,11 @@ export default function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
             name: "Products",
             href: "/admin/products",
             icon: ShoppingBag,
+        },
+        {
+            name: "Pengajuan Kemitraan",
+            href: "/admin/partner-requests",
+            icon: Users,
         },
     ];
 
@@ -58,7 +63,9 @@ export default function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
                 <nav className="flex-1 p-4 space-y-2">
                     {menus.map((menu) => {
                         const Icon = menu.icon;
-                        const isActive = pathname === menu.href;
+                        const isActive = menu.href === "/admin"
+                            ? pathname === "/admin"
+                            : pathname.startsWith(menu.href);
 
                         return (
                             <Link
