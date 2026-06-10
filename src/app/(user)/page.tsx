@@ -454,13 +454,13 @@ export default function ProductsPage() {
 
       {showToast && (
         <div className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none animate-in fade-in zoom-in-95 duration-200">
-          <div className="bg-slate-900/90 text-white px-5 py-3 rounded-xl shadow-xl flex flex-col items-center gap-1.5 max-w-xs text-center backdrop-blur-sm">
-            <div className="w-7 h-7 bg-emerald-500 rounded-full flex items-center justify-center shadow-inner">
+          <div className="bg-white border border-emerald-200 text-slate-800 px-5 py-3.5 rounded-2xl shadow-xl shadow-emerald-600/10 flex items-center gap-3 max-w-xs backdrop-blur-sm">
+            <div className="w-8 h-8 bg-emerald-600 rounded-full flex items-center justify-center shrink-0">
               <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <p className="text-xs font-medium tracking-wide">
+            <p className="text-sm font-semibold text-slate-800">
               Berhasil dimasukkan ke keranjang
             </p>
           </div>

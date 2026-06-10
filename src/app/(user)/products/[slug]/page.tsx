@@ -32,10 +32,10 @@ export default function ProductDetailPage() {
     const [loading, setLoading] = useState<boolean>(true);
     const [addingToCart, setAddingToCart] = useState<boolean>(false);
     const [showToast, setShowToast] = useState<boolean>(false);
-    const [activeIdx, setActiveIdx] = useState<number>(0);
-    const [api, setApi] = useState<CarouselApi>();
-    const [zoomSrc, setZoomSrc] = useState<string | null>(null);
-    const [zoomType, setZoomType] = useState<"image" | "video">("image");
+    const [activeIdx, setActiveIdx] = useState(0);   // slide ke berapa sekarang
+    const [api, setApi] = useState<CarouselApi>();     // kendali carousel
+    const [zoomSrc, setZoomSrc] = useState(null);      // URL yang lagi di-zoom
+    const [zoomType, setZoomType] = useState<"image" | "video">("image"); //jenis: "image" atau "video"
 
     useEffect(() => {
         fetchProduct();
@@ -319,7 +319,7 @@ export default function ProductDetailPage() {
 
                         {/* Ikon Zoom (hint) — selalu tampil untuk gambar & video */}
                         <div className="absolute left-3 bottom-3 z-10 bg-slate-950/60 backdrop-blur-sm text-white text-[10px] px-2 py-0.5 rounded-full flex items-center gap-1 opacity-0 group-hover:opacity-100 transition duration-200">
-                            <ZoomIn className="w-3 h-3" /> Perbesar
+                            <ZoomIn className="w-3 h-3" />
                         </div>
                     </div>
 
@@ -476,13 +476,13 @@ export default function ProductDetailPage() {
             {/* TOAST MESSAGE */}
             {showToast && (
                 <div className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none animate-in fade-in zoom-in-95 duration-200">
-                    <div className="bg-slate-900/90 text-white px-5 py-3 rounded-xl shadow-xl flex flex-col items-center gap-1.5 max-w-xs text-center backdrop-blur-sm">
-                        <div className="w-7 h-7 bg-emerald-500 rounded-full flex items-center justify-center shadow-inner">
+                    <div className="bg-white border border-emerald-200 text-slate-800 px-5 py-3.5 rounded-2xl shadow-xl shadow-emerald-600/10 flex items-center gap-3 max-w-xs backdrop-blur-sm">
+                        <div className="w-8 h-8 bg-emerald-600 rounded-full flex items-center justify-center shrink-0">
                             <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" />
                             </svg>
                         </div>
-                        <p className="text-xs font-medium tracking-wide">
+                        <p className="text-sm font-semibold text-slate-800">
                             Berhasil dimasukkan ke keranjang
                         </p>
                     </div>

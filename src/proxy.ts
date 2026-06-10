@@ -16,7 +16,7 @@ const PROTECTED_USER_ROUTES = [
     "/kemitraan",
 ];
 
-export async function middleware(request: NextRequest) {
+export default async function proxy(request: NextRequest) {
     let response = NextResponse.next({ request });
 
     const supabase = createServerClient(

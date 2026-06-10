@@ -22,6 +22,7 @@ interface CartItem {
     variant_id: string;
     variant_name: string;
     base_price: number;
+    display_price: number;
     product_name: string;
     product_image: string;
 }
@@ -43,6 +44,15 @@ export default function CartPage() {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
 
+            // Ambil level user untuk harga sesuai level
+            let userLevel = 'konsumen';
+            const { data: profile } = await supabase
+                .from("profiles")
+                .select("level")
+                .eq("id", user.id)
+                .single();
+            if (profile) userLevel = profile.level;
+
             const { data: cart } = await supabase
                 .from("carts")
                 .select("id")
@@ -63,6 +73,10 @@ export default function CartPage() {
                     product_variants (
                         variant_name,
                         base_price,
+                        product_variant_prices (
+                            price,
+                            level
+                        ),
                         products (
                             name,
                             image_url
@@ -74,15 +88,27 @@ export default function CartPage() {
             if (error) throw error;
 
             if (cartItems) {
-                const formatted: CartItem[] = cartItems.map((item: any) => ({
-                    id: item.id,
-                    qty: item.qty,
-                    variant_id: item.variant_id,
-                    variant_name: item.product_variants?.variant_name || "",
-                    base_price: Number(item.product_variants?.base_price || 0),
-                    product_name: item.product_variants?.products?.name || "Produk Hilang",
-                    product_image: item.product_variants?.products?.image_url || "",
-                }));
+                const formatted: CartItem[] = cartItems.map((item: any) => {
+                    const variant = item.product_variants;
+                    const basePrice = Number(variant?.base_price || 0);
+
+                    // Cari harga sesuai level user
+                    const levelPrice = variant?.product_variant_prices?.find(
+                        (p: any) => p.level === userLevel
+                    );
+                    const displayPrice = levelPrice ? Number(levelPrice.price) : basePrice;
+
+                    return {
+                        id: item.id,
+                        qty: item.qty,
+                        variant_id: item.variant_id,
+                        variant_name: variant?.variant_name || "",
+                        base_price: basePrice,
+                        display_price: displayPrice,
+                        product_name: variant?.products?.name || "Produk Hilang",
+                        product_image: variant?.products?.image_url || "",
+                    };
+                });
                 setItems(formatted);
                 setSelectedIds(formatted.map(item => item.id));
             }
@@ -158,7 +184,7 @@ export default function CartPage() {
     };
 
     const selectedItems = items.filter(item => selectedIds.includes(item.id));
-    const totalPrice = selectedItems.reduce((acc, item) => acc + (item.base_price * item.qty), 0);
+    const totalPrice = selectedItems.reduce((acc, item) => acc + (item.display_price * item.qty), 0);
     const totalQty = selectedItems.reduce((acc, item) => acc + item.qty, 0);
 
     if (loading) {
@@ -280,7 +306,7 @@ export default function CartPage() {
                                         </span>
                                     </div>
                                     <p className="text-xs md:text-sm font-bold text-slate-900 mt-2">
-                                        Rp {item.base_price.toLocaleString("id-ID")}
+                                        Rp {item.display_price.toLocaleString("id-ID")}
                                     </p>
                                 </div>
 

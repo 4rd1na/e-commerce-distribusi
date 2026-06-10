@@ -1,36 +1,56 @@
-"use client";
-
 import Link from "next/link";
+import { ShoppingBag } from "lucide-react";
 
 export default function Footer() {
     return (
-        <footer className="border-t bg-white">
-            <div className="container mx-auto px-4 py-6">
-                <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+        <footer className="bg-slate-900 text-slate-400">
+            {/* Main Footer */}
+            <div className="container mx-auto px-4 py-10">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
 
-                    {/* KIRI: Brand & Slogan Singkat */}
-                    <div className="text-center md:text-left">
-                        <h2 className="text-lg font-black text-emerald-600 leading-none mb-1">
-                            DinaMart
-                        </h2>
-                        <p className="text-xs text-slate-500">
-                            Platform distribusi produk & mitra.
+                    {/* Brand */}
+                    <div>
+                        <Link href="/" className="flex items-center gap-2 mb-3">
+                            <div className="w-8 h-8 bg-emerald-600 rounded-lg flex items-center justify-center">
+                                <ShoppingBag className="w-4 h-4 text-white" />
+                            </div>
+                            <span className="text-lg font-black text-white tracking-tight">
+                                Dina<span className="text-emerald-400">Mart</span>
+                            </span>
+                        </Link>
+                        <p className="text-sm text-slate-500 leading-relaxed max-w-xs">
+                            Platform distribusi produk terpercaya. Belanja mudah, harga bersaing, pengiriman cepat.
                         </p>
                     </div>
 
-                    {/* TENGAH: Info Tambahan Ringkas (Navigasi & Kontak) */}
-                    <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-1 text-xs text-slate-500 font-medium">
-                        <Link href="/" className="hover:text-emerald-600 transition">Beranda</Link>
-                        <Link href="/pengajuan" className="hover:text-emerald-600 transition">Kemitraan</Link>
-                        <span className="text-slate-300 hidden sm:inline">|</span>
-                        <span className="text-slate-500">support@dinamart.com</span>
+                    {/* Links */}
+                    <div>
+                        <h3 className="text-sm font-semibold text-white mb-3">Navigasi</h3>
+                        <div className="space-y-2">
+                            <Link href="/" className="block text-sm text-slate-500 hover:text-emerald-400 transition">Beranda</Link>
+                            <Link href="/kemitraan" className="block text-sm text-slate-500 hover:text-emerald-400 transition">Kemitraan</Link>
+                            <Link href="/carts" className="block text-sm text-slate-500 hover:text-emerald-400 transition">Keranjang</Link>
+                            <Link href="/profile" className="block text-sm text-slate-500 hover:text-emerald-400 transition">Profile</Link>
+                        </div>
                     </div>
 
-                    {/* KANAN: Copyright */}
-                    <div className="text-xs text-slate-500 text-center md:text-right">
-                        © {new Date().getFullYear()} DinaMart. Semua hak dilindungi undang-undang.
+                    {/* Contact */}
+                    <div>
+                        <h3 className="text-sm font-semibold text-white mb-3">Kontak</h3>
+                        <div className="space-y-2 text-sm text-slate-500">
+                            <p>support@dinamart.com</p>
+                            <p>Jawa Timur, Indonesia</p>
+                        </div>
                     </div>
+                </div>
+            </div>
 
+            {/* Bottom Bar */}
+            <div className="border-t border-slate-800">
+                <div className="container mx-auto px-4 py-4 flex flex-col sm:flex-row items-center justify-between gap-2">
+                    <p className="text-xs text-slate-600">
+                        © {new Date().getFullYear()} DinaMart. Semua hak dilindungi.
+                    </p>
                 </div>
             </div>
         </footer>
