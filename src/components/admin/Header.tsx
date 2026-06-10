@@ -19,7 +19,7 @@ export default function AdminHeader({ onToggleSidebar }: AdminHeaderProps) {
 
             localStorage.clear();
             router.refresh();
-            router.replace("/auth/login");
+            router.replace("/login");
         } catch (error) {
             console.error("Gagal Logout Admin:", error);
         }

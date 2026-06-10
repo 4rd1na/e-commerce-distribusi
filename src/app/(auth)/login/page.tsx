@@ -264,7 +264,7 @@ export default function LoginPage() {
                     {step === 'email' && (
                         <div className="mt-6 text-center text-sm text-slate-500">
                             Belum punya akun?{" "}
-                            <Link href="/auth/register" className="text-emerald-600 font-bold hover:underline">
+                            <Link href="/register" className="text-emerald-600 font-bold hover:underline">
                                 Daftar
                             </Link>
                         </div>

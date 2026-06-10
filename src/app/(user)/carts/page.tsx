@@ -29,10 +29,7 @@ interface CartItem {
 export default function CartPage() {
     const [items, setItems] = useState<CartItem[]>([]);
     const [loading, setLoading] = useState(true);
-
-    // KUNCI ALA SHOPEE: State untuk menyimpan ID item yang dicentang (selected)
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
-
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [itemToDelete, setItemToDelete] = useState<string | null>(null);
 
@@ -87,8 +84,6 @@ export default function CartPage() {
                     product_image: item.product_variants?.products?.image_url || "",
                 }));
                 setItems(formatted);
-
-                // Otomatis centang semua di awal load (seperti Shopee)
                 setSelectedIds(formatted.map(item => item.id));
             }
         } catch (err) {
@@ -98,7 +93,6 @@ export default function CartPage() {
         }
     };
 
-    // LOGIKA CHECKBOX SINGLE: Nyalakan/Matikan centang per item barang
     const toggleSelect = (id: string) => {
         if (selectedIds.includes(id)) {
             setSelectedIds(prev => prev.filter(item => item !== id));
@@ -107,12 +101,11 @@ export default function CartPage() {
         }
     };
 
-    // LOGIKA CHECKBOX ALL: Centang semua atau matikan semua sakelar sekaligus
     const toggleSelectAll = () => {
         if (selectedIds.length === items.length) {
-            setSelectedIds([]); // Kosongkan centang
+            setSelectedIds([]);
         } else {
-            setSelectedIds(items.map(item => item.id)); // Centang semuanya
+            setSelectedIds(items.map(item => item.id));
         }
     };
 
@@ -168,21 +161,17 @@ export default function CartPage() {
     const totalPrice = selectedItems.reduce((acc, item) => acc + (item.base_price * item.qty), 0);
     const totalQty = selectedItems.reduce((acc, item) => acc + item.qty, 0);
 
-    // ==================== REPLACEMENT: SKELETON LOADING UI ====================
     if (loading) {
         return (
             <div className="container mx-auto px-4 py-4 md:py-8 max-w-4xl">
-                {/* Skeleton Title */}
                 <div className="h-6 w-40 bg-slate-200 rounded-lg animate-pulse mb-6" />
 
-                {/* Skeleton Select All Bar */}
                 <div className="bg-white border border-slate-100 p-3 rounded-xl flex items-center gap-3 mb-3 shadow-sm animate-pulse">
                     <div className="w-4 h-4 bg-slate-200 rounded" />
                     <div className="h-3.5 w-32 bg-slate-200 rounded" />
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
-                    {/* Skeleton List Barang (Loops 3 items) */}
                     <div className="lg:col-span-2 space-y-2.5">
                         {[1, 2, 3].map((i) => (
                             <div key={i} className="bg-white border border-slate-100 rounded-xl p-3 flex gap-3 items-center shadow-sm animate-pulse">
@@ -201,7 +190,6 @@ export default function CartPage() {
                         ))}
                     </div>
 
-                    {/* Skeleton Ringkasan Belanja */}
                     <div className="bg-white border border-slate-100 p-4 rounded-2xl space-y-4 shadow-sm animate-pulse">
                         <div className="h-3 w-28 bg-slate-200 rounded" />
                         <div className="flex justify-between border-b border-slate-50 pb-3">
@@ -218,7 +206,6 @@ export default function CartPage() {
             </div>
         );
     }
-    // ==========================================================================
 
     if (items.length === 0) {
         return (
@@ -226,7 +213,7 @@ export default function CartPage() {
                 <div className="w-16 h-16 bg-slate-50 border border-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-5 shadow-sm">
                     <ShoppingBag className="w-5 h-5 text-slate-400" />
                 </div>
-                <h2 className="text-base font-bold text-slate-800 tracking-tight">Keranjang Belanja Kosong</h2>
+                <h2 className="text-base font-bold text-slate-800 tracking-tight">Keranjang Anda Masih Kosong</h2>
                 <p className="text-xs text-slate-400 mt-1 mb-6 leading-relaxed">Kamu belum memasukkan produk apapun ke dalam keranjang belanjamu.</p>
                 <Link href="/">
                     <Button className="bg-slate-900 hover:bg-slate-800 rounded-xl text-xs px-5 h-9 font-medium shadow-sm">
@@ -246,7 +233,6 @@ export default function CartPage() {
                 </span>
             </h1>
 
-            {/* SAKELAR PILIH SEMUA BARANG */}
             <div className="bg-white border border-slate-100 p-3 rounded-xl flex items-center gap-3 mb-3 shadow-sm">
                 <button
                     onClick={toggleSelectAll}
@@ -262,9 +248,7 @@ export default function CartPage() {
                 </span>
             </div>
 
-            {/* GRID UTAMA */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
-                {/* LIST BARANG */}
                 <div className="lg:col-span-2 space-y-2.5">
                     {items.map((item) => {
                         const isChecked = selectedIds.includes(item.id);
@@ -274,7 +258,6 @@ export default function CartPage() {
                                 className={`bg-white border rounded-xl p-3 flex gap-3 items-center transition-all duration-200 ${isChecked ? "border-emerald-100 bg-emerald-50/10" : "border-slate-100"
                                     }`}
                             >
-                                {/* CHECKBOX CUSTOM */}
                                 <button
                                     onClick={() => toggleSelect(item.id)}
                                     className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-all ${isChecked
@@ -285,17 +268,15 @@ export default function CartPage() {
                                     {isChecked && <Check className="w-3 h-3 stroke-[3]" />}
                                 </button>
 
-                                {/* GAMBAR PRODUK */}
                                 <div className="w-16 h-16 rounded-xl bg-slate-50 border border-slate-100 overflow-hidden shrink-0 shadow-sm">
                                     <img src={item.product_image} alt={item.product_name} className="w-full h-full object-cover" />
                                 </div>
 
-                                {/* INFO PRODUK */}
                                 <div className="flex-1 min-w-0">
                                     <h3 className="text-xs md:text-sm font-semibold text-slate-800 truncate leading-snug">{item.product_name}</h3>
                                     <div className="mt-1">
                                         <span className="text-[10px] text-slate-500 bg-slate-50 border border-slate-100 px-1.5 py-0.5 rounded font-medium">
-                                            Variasi: {item.variant_name}
+                                            Varian: {item.variant_name}
                                         </span>
                                     </div>
                                     <p className="text-xs md:text-sm font-bold text-slate-900 mt-2">
@@ -303,7 +284,6 @@ export default function CartPage() {
                                     </p>
                                 </div>
 
-                                {/* PENGATUR QUANTITY & HAPUS */}
                                 <div className="flex flex-col items-end gap-2 shrink-0">
                                     <button
                                         onClick={() => {
@@ -330,7 +310,6 @@ export default function CartPage() {
                     })}
                 </div>
 
-                {/* RINGKASAN PEMBAYARAN DESKTOP */}
                 <div className="hidden lg:block bg-white border border-slate-100 p-4 rounded-2xl h-fit space-y-4 shadow-sm sticky top-24">
                     <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400">Ringkasan Belanja</h2>
 
@@ -353,7 +332,6 @@ export default function CartPage() {
                 </div>
             </div>
 
-            {/* RINGKASAN PEMBAYARAN MOBILE (Pindah ke luar Grid Utama) */}
             <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-3 px-4 flex items-center justify-between z-50 shadow-[0_-4px_12px_rgba(0,0,0,0.08)]">
                 <div className="flex flex-col">
                     <span className="text-[10px] font-medium text-slate-400 leading-none mb-1">Total ({totalQty} barang)</span>
@@ -368,12 +346,11 @@ export default function CartPage() {
                 </Button>
             </div>
 
-            {/* INTERFACES DIALOG JIKA NOL */}
             <AlertDialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                 <AlertDialogContent className="rounded-2xl max-w-[90%] sm:max-w-sm p-6 gap-4 border border-slate-100 shadow-lg">
                     <AlertDialogHeader className="space-y-2">
                         <AlertDialogTitle className="text-sm md:text-base font-bold text-slate-900 text-left">
-                            Hapus dari Keranjang?
+                            Yakin Hapus Produk dari Keranjang?
                         </AlertDialogTitle>
                         <AlertDialogDescription className="text-xs text-slate-400 leading-normal text-left">
                             Barang ini akan dikeluarkan dari daftar keranjang belanja milikmu.

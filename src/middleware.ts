@@ -5,7 +5,7 @@ import { NextResponse, type NextRequest } from "next/server";
 const PUBLIC_ROUTES = ["/", "/products"];
 
 // Route auth — redirect ke home jika sudah login
-const AUTH_ROUTES = ["/auth/login", "/auth/register"];
+const AUTH_ROUTES = ["/login", "/register"];
 
 // Route user yang WAJIB login (bukan admin)
 const PROTECTED_USER_ROUTES = [
@@ -55,7 +55,7 @@ export async function middleware(request: NextRequest) {
     // ── 2. Route Admin: /admin/* ──
     if (pathname.startsWith("/admin")) {
         if (!user) {
-            const loginUrl = new URL("/auth/login", request.url);
+            const loginUrl = new URL("/login", request.url);
             loginUrl.searchParams.set("redirect", pathname);
             return NextResponse.redirect(loginUrl);
         }
@@ -75,19 +75,9 @@ export async function middleware(request: NextRequest) {
         return response;
     }
 
-    // ── 3. Route User yang dilindungi ──
-    const isProtectedUserRoute = PROTECTED_USER_ROUTES.some((p) =>
-        pathname.startsWith(p)
-    );
-
-    if (isProtectedUserRoute) {
-        if (!user) {
-            const loginUrl = new URL("/auth/login", request.url);
-            loginUrl.searchParams.set("redirect", pathname);
-            return NextResponse.redirect(loginUrl);
-        }
-
-        // Cek apakah admin mencoba akses route user
+    // ── 3. Admin sudah login → blokir akses route public/user ──
+    // Admin tidak boleh lihat halaman user, harus stay di /admin
+    if (user) {
         const { data: profile } = await supabase
             .from("profiles")
             .select("role, internal_role")
@@ -95,9 +85,26 @@ export async function middleware(request: NextRequest) {
             .single();
 
         if (profile?.role === "internal" && profile?.internal_role === "admin") {
-            // Admin → tendang ke panel admin
-            return NextResponse.redirect(new URL("/admin", request.url));
+            // Admin apapun route-nya (/, /products, /profile, dll) → tendang ke /admin
+            if (!pathname.startsWith("/admin")) {
+                return NextResponse.redirect(new URL("/admin", request.url));
+            }
+            return response; // admin di /admin → lolos
         }
+    }
+
+    // ── 4. Route User yang dilindungi ──
+    const isProtectedUserRoute = PROTECTED_USER_ROUTES.some((p) =>
+        pathname.startsWith(p)
+    );
+
+    if (isProtectedUserRoute) {
+        if (!user) {
+            const loginUrl = new URL("/", request.url);
+            loginUrl.searchParams.set("redirect", pathname);
+            return NextResponse.redirect(loginUrl);
+        }
+        // Admin sudah ditangani di blok 3 di atas
     }
 
     // Kirim pathname ke header supaya layout/server component bisa baca

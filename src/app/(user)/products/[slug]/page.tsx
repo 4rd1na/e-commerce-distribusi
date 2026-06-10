@@ -1,10 +1,18 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
-import { ShoppingBag, ShoppingCart, ChevronLeft, ChevronRight } from "lucide-react";
+import { useEffect, useState, useCallback } from "react";
+import { ShoppingBag, ShoppingCart, ZoomIn, X } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
+import {
+    Carousel,
+    CarouselContent,
+    CarouselItem,
+    CarouselPrevious,
+    CarouselNext,
+    type CarouselApi,
+} from "@/components/ui/carousel";
 
 interface Variant {
     id: string;
@@ -13,7 +21,7 @@ interface Variant {
     inventory_stocks: {
         qty: number;
     }[];
-    display_price?: number; // Menampung harga dinamis hasil kalkulasi level
+    display_price?: number;
 }
 
 export default function ProductDetailPage() {
@@ -25,9 +33,8 @@ export default function ProductDetailPage() {
     const [addingToCart, setAddingToCart] = useState<boolean>(false);
     const [showToast, setShowToast] = useState<boolean>(false);
     const [activeIdx, setActiveIdx] = useState<number>(0);
-
-    // KUNCI SMOOTH: Ref untuk mengontrol container scroll secara programmatik
-    const sliderRef = useRef<HTMLDivElement>(null);
+    const [api, setApi] = useState<CarouselApi>();
+    const [zoomSrc, setZoomSrc] = useState<string | null>(null);
 
     useEffect(() => {
         fetchProduct();
@@ -36,10 +43,8 @@ export default function ProductDetailPage() {
     const fetchProduct = async () => {
         try {
             setLoading(true);
-
-            // 1. Dapatkan user session saat ini
             const { data: { user } } = await supabase.auth.getUser();
-            let userLevel = 'konsumen'; // Default level jika belum login
+            let userLevel = 'konsumen';
 
             if (user) {
                 const { data: profile } = await supabase
@@ -50,7 +55,6 @@ export default function ProductDetailPage() {
                 if (profile) userLevel = profile.level;
             }
 
-            // 2. Ambil detail produk beserta varian stok
             const { data, error } = await supabase
                 .from("products")
                 .select(`
@@ -151,7 +155,7 @@ export default function ProductDetailPage() {
 
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) {
-                router.push("/auth/login");
+                router.push("/login");
                 return;
             }
 
@@ -215,29 +219,18 @@ export default function ProductDetailPage() {
         }
     };
 
-    // FUNGSI NAVIGASI SLIDER BARU: Agar perpindahan media animasi gesernya halus
-    const scrollToIdx = (idx: number) => {
-        if (!sliderRef.current) return;
-        const container = sliderRef.current;
-        const width = container.clientWidth;
+    // Sinkronkan activeIdx dengan posisi carousel
+    const onSelect = useCallback(() => {
+        if (!api) return;
+        setActiveIdx(api.selectedScrollSnap());
+    }, [api]);
 
-        container.scrollTo({
-            left: idx * width,
-            behavior: "smooth" // Efek animasi transisi geser horizontal halus
-        });
-        setActiveIdx(idx);
-    };
-
-    // Fungsi handle jika pembeli swiping manual lewat layar touchscreen HP
-    const handleScrollDetect = (e: any) => {
-        const container = e.currentTarget;
-        const scrollLeft = container.scrollLeft;
-        const width = container.clientWidth;
-        const newIdx = Math.round(scrollLeft / width);
-        if (newIdx !== activeIdx && newIdx >= 0) {
-            setActiveIdx(newIdx);
-        }
-    };
+    useEffect(() => {
+        if (!api) return;
+        onSelect();
+        api.on("select", onSelect);
+        return () => { api.off("select", onSelect); };
+    }, [api, onSelect]);
 
     if (loading) {
         return (
@@ -268,64 +261,48 @@ export default function ProductDetailPage() {
         <div className="container mx-auto px-4 py-4 md:py-8 max-w-5xl">
             <div className="grid md:grid-cols-2 gap-6 lg:gap-10 items-start">
 
-                {/* IMAGE & VIDEO MULTI-SLIDER (ALA SHOPEE - SMOOTH VERSION) */}
+                {/* IMAGE & VIDEO CAROUSEL (SHADCN UI) + ZOOM */}
                 <div className="w-full space-y-3">
 
-                    {/* Frame Utama Media */}
+                    {/* Carousel Utama */}
                     <div className="relative aspect-square bg-slate-50 border border-slate-100 rounded-2xl overflow-hidden group shadow-sm">
-
-                        {/* Container Horizontal Scroll dengan Snap CSS */}
-                        <div
-                            ref={sliderRef}
-                            onScroll={handleScrollDetect}
-                            className="w-full h-full flex overflow-x-auto snap-x snap-mandatory scrollbar-none"
+                        <Carousel
+                            setApi={setApi}
+                            opts={{ loop: true }}
+                            className="w-full h-full"
                         >
-                            {productMedia.map((mediaItem: any, idx: number) => (
-                                <div
-                                    key={idx}
-                                    className="w-full h-full shrink-0 snap-center flex items-center justify-center relative"
-                                >
-                                    {mediaItem?.media_type === "video" ? (
-                                        <video
-                                            src={mediaItem?.media_url}
-                                            controls
-                                            playsInline
-                                            className="w-full h-full object-contain bg-slate-950"
-                                        />
-                                    ) : (
-                                        <img
-                                            src={mediaItem?.media_url}
-                                            alt={`${product.name}-${idx}`}
-                                            className="w-full h-full object-cover"
-                                        />
-                                    )}
-                                </div>
-                            ))}
-                        </div>
+                            <CarouselContent className="h-full ml-0">
+                                {productMedia.map((mediaItem: any, idx: number) => (
+                                    <CarouselItem key={idx} className="pl-0 h-full">
+                                        <div className="w-full h-full flex items-center justify-center relative">
+                                            {mediaItem?.media_type === "video" ? (
+                                                <video
+                                                    src={mediaItem?.media_url}
+                                                    controls
+                                                    playsInline
+                                                    className="w-full h-full object-contain bg-slate-950"
+                                                />
+                                            ) : (
+                                                <img
+                                                    src={mediaItem?.media_url}
+                                                    alt={`${product.name}-${idx}`}
+                                                    className="w-full h-full object-cover cursor-zoom-in"
+                                                    onClick={() => setZoomSrc(mediaItem?.media_url)}
+                                                />
+                                            )}
+                                        </div>
+                                    </CarouselItem>
+                                ))}
+                            </CarouselContent>
 
-                        {/* Tombol Panah Kiri & Kanan */}
-                        {productMedia.length > 1 && (
-                            <>
-                                <button
-                                    onClick={() => {
-                                        const prevIdx = activeIdx === 0 ? productMedia.length - 1 : activeIdx - 1;
-                                        scrollToIdx(prevIdx);
-                                    }}
-                                    className="absolute left-3 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-white/80 hover:bg-white border border-slate-200 flex items-center justify-center text-slate-700 shadow opacity-0 group-hover:opacity-100 transition duration-200"
-                                >
-                                    <ChevronLeft className="w-4 h-4" />
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        const nextIdx = activeIdx === productMedia.length - 1 ? 0 : activeIdx + 1;
-                                        scrollToIdx(nextIdx);
-                                    }}
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-white/80 hover:bg-white border border-slate-200 flex items-center justify-center text-slate-700 shadow opacity-0 group-hover:opacity-100 transition duration-200"
-                                >
-                                    <ChevronRight className="w-4 h-4" />
-                                </button>
-                            </>
-                        )}
+                            {/* Tombol Panah */}
+                            {productMedia.length > 1 && (
+                                <>
+                                    <CarouselPrevious className="absolute left-3 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-white/80 hover:bg-white border border-slate-200 shadow opacity-0 group-hover:opacity-100 transition duration-200" />
+                                    <CarouselNext className="absolute right-3 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-white/80 hover:bg-white border border-slate-200 shadow opacity-0 group-hover:opacity-100 transition duration-200" />
+                                </>
+                            )}
+                        </Carousel>
 
                         {/* Indikator Angka */}
                         {productMedia.length > 1 && (
@@ -333,15 +310,22 @@ export default function ProductDetailPage() {
                                 {activeIdx + 1}/{productMedia.length}
                             </div>
                         )}
+
+                        {/* Ikon Zoom (hint) */}
+                        {productMedia[activeIdx]?.media_type !== "video" && (
+                            <div className="absolute left-3 bottom-3 z-10 bg-slate-950/60 backdrop-blur-sm text-white text-[10px] px-2 py-0.5 rounded-full flex items-center gap-1 opacity-0 group-hover:opacity-100 transition duration-200">
+                                <ZoomIn className="w-3 h-3" /> Perbesar
+                            </div>
+                        )}
                     </div>
 
-                    {/* Barisan Thumbnail Kecil di Bawah Frame Utama */}
+                    {/* Thumbnail */}
                     {productMedia.length > 1 && (
                         <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
                             {productMedia.map((mediaItem: any, idx: number) => (
                                 <button
                                     key={idx}
-                                    onClick={() => scrollToIdx(idx)}
+                                    onClick={() => api?.scrollTo(idx)}
                                     className={`relative w-16 h-16 rounded-lg border-2 overflow-hidden bg-slate-50 shrink-0 transition-all ${activeIdx === idx
                                         ? "border-emerald-600 shadow-sm scale-95"
                                         : "border-slate-200 hover:border-slate-300"
@@ -363,6 +347,26 @@ export default function ProductDetailPage() {
                         </div>
                     )}
                 </div>
+
+                {/* ZOOM MODAL */}
+                {zoomSrc && (
+                    <div
+                        className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center cursor-zoom-out"
+                        onClick={() => setZoomSrc(null)}
+                    >
+                        <button
+                            onClick={() => setZoomSrc(null)}
+                            className="absolute top-4 right-4 z-10 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition"
+                        >
+                            <X className="w-5 h-5" />
+                        </button>
+                        <img
+                            src={zoomSrc}
+                            alt="Zoom"
+                            className="max-w-[95vw] max-h-[95vh] object-contain"
+                        />
+                    </div>
+                )}
 
                 {/* CONTENT CONTAINER */}
                 <div className="space-y-4 md:pt-2">
@@ -404,7 +408,7 @@ export default function ProductDetailPage() {
                                     return (
                                         <button
                                             key={variant.id}
-                                            disabled={isOutOfStock} // 2. Kunci tombol jika stok habis
+                                            disabled={isOutOfStock}
                                             onClick={() => setSelectedVariant(variant)}
                                             className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-all duration-200 ${selectedVariant?.id === variant.id
                                                 ? "bg-emerald-600 border-emerald-600 text-white shadow-sm"

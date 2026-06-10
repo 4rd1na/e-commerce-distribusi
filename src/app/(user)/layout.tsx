@@ -9,7 +9,6 @@ const HIDE_FOOTER_ROUTES = ["/carts"];
 
 // Route user yang WAJIB login
 const PROTECTED_USER_ROUTES = [
-    "/",
     "/profile",
     "/orders",
     "/carts",
@@ -36,7 +35,7 @@ export default async function CustomerGroupLayout({
 
         // Belum login → redirect ke login
         if (!user) {
-            redirect("/auth/login");
+            redirect("/login");
         }
 
         // Cek apakah admin mencoba akses route user

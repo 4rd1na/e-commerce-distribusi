@@ -157,7 +157,7 @@ export default function Header() {
 
     const handleCartClick = () => {
         if (!user) {
-            router.push("/auth/login");
+            router.push("/login");
         } else {
             router.push("/carts");
         }
@@ -269,7 +269,7 @@ export default function Header() {
                         </div>
                     ) : (
                         <div className="hidden md:block">
-                            <Link href="/auth/login">
+                            <Link href="/login">
                                 <Button className="rounded-xl bg-emerald-600 hover:bg-emerald-700">
                                     Masuk
                                 </Button>
@@ -399,7 +399,7 @@ export default function Header() {
                                     </button>
                                 </div>
                             ) : (
-                                <Link href="/auth/login" onClick={() => setMenuOpen(false)}>
+                                <Link href="/login" onClick={() => setMenuOpen(false)}>
                                     <Button className="w-full rounded-xl bg-emerald-600 hover:bg-emerald-700 font-bold">
                                         Masuk
                                     </Button>

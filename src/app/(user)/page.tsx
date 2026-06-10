@@ -45,32 +45,18 @@ export default function ProductsPage() {
   const [selectedVariants, setSelectedVariants] = useState<{ [key: string]: string }>({});
 
   const searchParams = useSearchParams();
-  const [searchLoading, setSearchLoading] = useState(false);
   const searchQuery = searchParams.get("search")?.toLowerCase() || "";
   const [isSortOpen, setIsSortOpen] = useState<boolean>(false);
 
-  useEffect(() => {
-    setSearchLoading(true);
-    const timer = setTimeout(() => {
-      setSearchLoading(false);
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
-
+  // Filter kategori tetap client-side (data sudah ada, cukup bandingkan string)
   const filteredProducts = products.filter((p) => {
-    const matchesSearch =
-      p.name.toLowerCase().includes(searchQuery) ||
-      p.category.toLowerCase().includes(searchQuery);
-
-    const matchesCategory = selectedCategory === "all" || p.category.toLowerCase() === selectedCategory.toLowerCase();
-
-    return matchesSearch && matchesCategory;
+    return selectedCategory === "all" || p.category.toLowerCase() === selectedCategory.toLowerCase();
   });
 
   useEffect(() => {
     fetchProducts();
     fetchCategories();
-  }, []);
+  }, [searchQuery]);
 
   const fetchProducts = async () => {
     try {
@@ -107,7 +93,8 @@ export default function ProductsPage() {
             )
           )
         `)
-        .eq("is_active", true);
+        .eq("is_active", true)
+        .ilike("name", `%${searchQuery}%`);
 
       if (error) throw error;
 
@@ -174,7 +161,7 @@ export default function ProductsPage() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        router.push("/auth/login");
+        router.push("/login");
         return;
       }
 
@@ -338,11 +325,7 @@ export default function ProductsPage() {
       </div>
 
       {/* KONTEN UTAMA */}
-      {searchLoading ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2.5 sm:gap-4">
-          {Array.from({ length: 10 }).map((_, idx) => <SkeletonCard key={idx} />)}
-        </div>
-      ) : filteredProducts.length === 0 ? (
+      {filteredProducts.length === 0 ? (
         <div className="text-center py-16 text-sm text-slate-500 bg-white rounded-xl border border-slate-200 shadow-sm">
           <p className="font-medium text-slate-600">Produk tidak ditemukan</p>
           <p className="text-xs text-slate-400 mt-1">Coba pilih kategori produk lainnya.</p>
@@ -368,7 +351,7 @@ export default function ProductsPage() {
                           }`}
                       />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center text-xs text-slate-400">Tidak Ada Gambar</div>
+                      <div className="w-full h-full flex items-center justify-center text-xs text-slate-400">Gambar Belum Di Unggah</div>
                     )}
 
                     {/* OVERLAY & TEXT STOK HABIS */}
@@ -453,7 +436,7 @@ export default function ProductsPage() {
                         disabled={stock === 0 || addingToCart === currentVariantId}
                         onClick={() => {
                           handleAddToCart(p);
-                          router.push("/carts");
+                          router.push("/checkout");
                         }}
                         className="flex-1 h-7 sm:h-8 text-[10px] sm:text-[11px] font-medium rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white transition-colors"
                       >

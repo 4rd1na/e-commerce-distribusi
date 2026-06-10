@@ -31,7 +31,7 @@ interface Profile {
     email: string;
     phone_number: string | null;
     avatar_url: string | null;
-    level?: string; // Menampung data level user jika ada di profile
+    level?: string;
 }
 
 export default function ProfilePage() {
@@ -45,7 +45,6 @@ export default function ProfilePage() {
     const [phoneNumber, setPhoneNumber] = useState("");
     const [avatarUrl, setAvatarUrl] = useState("");
 
-    // Alert dialog state
     const [alertOpen, setAlertOpen] = useState(false);
     const [alertTitle, setAlertTitle] = useState("");
     const [alertMsg, setAlertMsg] = useState("");

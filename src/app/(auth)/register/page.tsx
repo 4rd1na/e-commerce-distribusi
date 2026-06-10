@@ -52,7 +52,7 @@ export default function RegisterPage() {
             setMessage("Pendaftaran berhasil! Silahkan login...");
 
             setTimeout(() => {
-                router.push("/auth/login");
+                router.push("/login");
             }, 1000);
 
         } catch (error: any) {
@@ -141,7 +141,7 @@ export default function RegisterPage() {
 
                     <div className="mt-6 text-center text-sm text-slate-500">
                         Sudah punya akun?{" "}
-                        <Link href="/auth/login" className="text-emerald-600 font-bold hover:underline">
+                        <Link href="/login" className="text-emerald-600 font-bold hover:underline">
                             Masuk
                         </Link>
                     </div>
