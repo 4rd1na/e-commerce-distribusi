@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { ShoppingBag, ShoppingCart, ZoomIn, X } from "lucide-react";
+import { ShoppingBag, ShoppingCart, ZoomIn, ChevronLeft, ChevronRight } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import {
     CarouselNext,
     type CarouselApi,
 } from "@/components/ui/carousel";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 
 interface Variant {
     id: string;
@@ -34,8 +35,7 @@ export default function ProductDetailPage() {
     const [showToast, setShowToast] = useState<boolean>(false);
     const [activeIdx, setActiveIdx] = useState(0);   // slide ke berapa sekarang
     const [api, setApi] = useState<CarouselApi>();     // kendali carousel
-    const [zoomSrc, setZoomSrc] = useState(null);      // URL yang lagi di-zoom
-    const [zoomType, setZoomType] = useState<"image" | "video">("image"); //jenis: "image" atau "video"
+    const [zoomOpen, setZoomOpen] = useState(false);   // status modal zoom shadcn
 
     useEffect(() => {
         fetchProduct();
@@ -233,6 +233,17 @@ export default function ProductDetailPage() {
         return () => { api.off("select", onSelect); };
     }, [api, onSelect]);
 
+    // Fungsi Navigasi Manual untuk Modal Zoom
+    const handlePrevZoom = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (api) api.scrollPrev();
+    };
+
+    const handleNextZoom = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (api) api.scrollNext();
+    };
+
     if (loading) {
         return (
             <div className="p-12 text-center text-sm text-slate-400 font-medium animate-pulse">
@@ -258,6 +269,8 @@ export default function ProductDetailPage() {
         0
     ) || 0;
 
+    const currentZoomMedia = productMedia[activeIdx];
+
     return (
         <div className="container mx-auto px-4 py-4 md:py-8 max-w-5xl">
             <div className="grid md:grid-cols-2 gap-6 lg:gap-10 items-start">
@@ -277,10 +290,7 @@ export default function ProductDetailPage() {
                                     <CarouselItem key={idx} className="!pl-0 h-full">
                                         <div
                                             className="w-full h-full flex items-center justify-center relative cursor-zoom-in"
-                                            onClick={() => {
-                                                setZoomSrc(mediaItem?.media_url);
-                                                setZoomType(mediaItem?.media_type === "video" ? "video" : "image");
-                                            }}
+                                            onClick={() => setZoomOpen(true)}
                                         >
                                             {mediaItem?.media_type === "video" ? (
                                                 <video
@@ -352,36 +362,57 @@ export default function ProductDetailPage() {
                     )}
                 </div>
 
-                {/* ZOOM MODAL — gambar & video */}
-                {zoomSrc && (
-                    <div
-                        className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center cursor-zoom-out"
-                        onClick={() => setZoomSrc(null)}
-                    >
-                        <button
-                            onClick={() => setZoomSrc(null)}
-                            className="absolute top-4 right-4 z-10 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition"
-                        >
-                            <X className="w-5 h-5" />
-                        </button>
-                        {zoomType === "video" ? (
-                            <video
-                                src={zoomSrc}
-                                controls
-                                autoPlay
-                                playsInline
-                                className="max-w-[95vw] max-h-[90vh] object-contain"
-                                onClick={(e) => e.stopPropagation()}
-                            />
-                        ) : (
-                            <img
-                                src={zoomSrc}
-                                alt="Zoom"
-                                className="max-w-[95vw] max-h-[95vh] object-contain"
-                            />
-                        )}
-                    </div>
-                )}
+                {/* ZOOM DIALOG MODAL SHADCN UI */}
+                <Dialog open={zoomOpen} onOpenChange={setZoomOpen}>
+                    <DialogContent className="sm:max-w-[90vw] md:max-w-[70vw] lg:max-w-[50vw] p-0 border-none bg-transparent shadow-none flex items-center justify-center backdrop-blur-md">
+                        <DialogTitle className="sr-only">Zoom Media Produk</DialogTitle>
+
+                        {/* Wadah Konsisten Utama */}
+                        <div className="relative aspect-square w-full max-h-[80vh] bg-slate-950/80 rounded-2xl overflow-hidden border border-slate-800 flex items-center justify-center group" onClick={(e) => e.stopPropagation()}>
+
+                            {/* Render Konten Media Aktif */}
+                            {currentZoomMedia?.media_type === "video" ? (
+                                <video
+                                    key={currentZoomMedia?.media_url}
+                                    src={currentZoomMedia?.media_url}
+                                    controls
+                                    autoPlay
+                                    playsInline
+                                    className="w-full h-full object-contain"
+                                />
+                            ) : (
+                                <img
+                                    src={currentZoomMedia?.media_url}
+                                    alt="Zoomed Product"
+                                    className="w-full h-full object-contain"
+                                />
+                            )}
+
+                            {/* Navigasi Kanan-Kiri Terintegrasi di Dalam Wadah */}
+                            {productMedia.length > 1 && (
+                                <>
+                                    <button
+                                        onClick={handlePrevZoom}
+                                        className="absolute left-4 top-1/2 -translate-y-1/2 z-[110] w-10 h-10 rounded-full bg-black/40 hover:bg-black/60 text-white border border-white/10 flex items-center justify-center transition opacity-0 group-hover:opacity-100"
+                                    >
+                                        <ChevronLeft className="w-6 h-6" />
+                                    </button>
+                                    <button
+                                        onClick={handleNextZoom}
+                                        className="absolute right-4 top-1/2 -translate-y-1/2 z-[110] w-10 h-10 rounded-full bg-black/40 hover:bg-black/60 text-white border border-white/10 flex items-center justify-center transition opacity-0 group-hover:opacity-100"
+                                    >
+                                        <ChevronRight className="w-6 h-6" />
+                                    </button>
+
+                                    {/* Indikator Angka di Tengah Bawah Wadah */}
+                                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[110] bg-black/60 border border-white/10 text-white text-[11px] font-bold px-3 py-1 rounded-full tracking-wider">
+                                        {activeIdx + 1} / {productMedia.length}
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    </DialogContent>
+                </Dialog>
 
                 {/* CONTENT CONTAINER */}
                 <div className="space-y-4 md:pt-2">
@@ -412,7 +443,6 @@ export default function ProductDetailPage() {
                             </label>
                             <div className="flex flex-wrap gap-1.5">
                                 {product.product_variants.map((variant: Variant) => {
-                                    // 1. Hitung stok untuk varian ini
                                     const variantStock = variant.inventory_stocks?.reduce(
                                         (a, b) => a + b.qty,
                                         0
@@ -428,7 +458,7 @@ export default function ProductDetailPage() {
                                             className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-all duration-200 ${selectedVariant?.id === variant.id
                                                 ? "bg-emerald-600 border-emerald-600 text-white shadow-sm"
                                                 : isOutOfStock
-                                                    ? "border-slate-200 bg-slate-100 text-slate-600 cursor-not-allowed opacity-60" // 3. Styling jika habis
+                                                    ? "border-slate-200 bg-slate-100 text-slate-600 cursor-not-allowed opacity-60"
                                                     : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
                                                 }`}
                                         >
