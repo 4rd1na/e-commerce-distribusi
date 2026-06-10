@@ -13,7 +13,17 @@ import {
     AvatarFallback,
     AvatarImage
 } from "@/components/ui/avatar";
-import { Camera, Calendar, ShieldCheck, Loader2, Trash2 } from "lucide-react";
+import { Camera, Calendar, ShieldCheck, Loader2, Trash2, CheckCircle2, AlertCircle } from "lucide-react";
+import {
+    AlertDialog,
+    AlertDialogContent,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogAction,
+    AlertDialogCancel,
+} from "@/components/ui/alert-dialog";
 
 interface Profile {
     id: string;
@@ -21,7 +31,7 @@ interface Profile {
     email: string;
     phone_number: string | null;
     avatar_url: string | null;
-    role?: string; // Menampung data level user jika ada di profile
+    level?: string; // Menampung data level user jika ada di profile
 }
 
 export default function ProfilePage() {
@@ -34,6 +44,19 @@ export default function ProfilePage() {
     const [email, setEmail] = useState("");
     const [phoneNumber, setPhoneNumber] = useState("");
     const [avatarUrl, setAvatarUrl] = useState("");
+
+    // Alert dialog state
+    const [alertOpen, setAlertOpen] = useState(false);
+    const [alertTitle, setAlertTitle] = useState("");
+    const [alertMsg, setAlertMsg] = useState("");
+    const [alertSuccess, setAlertSuccess] = useState(true);
+
+    const showAlert = (title: string, msg: string, success: boolean) => {
+        setAlertTitle(title);
+        setAlertMsg(msg);
+        setAlertSuccess(success);
+        setAlertOpen(true);
+    };
 
     useEffect(() => {
         getProfile();
@@ -114,10 +137,10 @@ export default function ProfilePage() {
                     : prev
             );
 
-            alert("Profile berhasil diperbarui");
+            showAlert("Berhasil!", "Profile berhasil diperbarui.", true);
 
         } catch (error: any) {
-            alert(error.message);
+            showAlert("Gagal!", error.message || "Terjadi kesalahan.", false);
         } finally {
             setSaving(false);
         }
@@ -137,9 +160,7 @@ export default function ProfilePage() {
             if (
                 !file.type.startsWith("image/")
             ) {
-                alert(
-                    "File harus berupa gambar"
-                );
+                showAlert("Format Salah!", "File harus berupa gambar.", false);
                 return;
             }
 
@@ -147,9 +168,7 @@ export default function ProfilePage() {
                 file.size >
                 2 * 1024 * 1024
             ) {
-                alert(
-                    "Ukuran maksimal 2MB"
-                );
+                showAlert("Ukuran Terlalu Besar!", "Ukuran maksimal 2MB.", false);
                 return;
             }
 
@@ -197,25 +216,21 @@ export default function ProfilePage() {
                     : prev
             );
 
-            alert(
-                "Avatar berhasil diupload"
-            );
+            showAlert("Berhasil!", "Foto profile berhasil diupload.", true);
 
         } catch (error: any) {
-            alert(error.message);
+            showAlert("Gagal!", error.message || "Gagal mengupload foto.", false);
         } finally {
             setUploading(false);
         }
     };
 
+    // Confirm delete state
+    const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+
     const deleteAvatar = async () => {
+        setConfirmDeleteOpen(false);
         try {
-            const confirmDelete = confirm(
-                "Hapus foto profile?"
-            );
-
-            if (!confirmDelete) return;
-
             setUploading(true);
 
             if (avatarUrl) {
@@ -250,12 +265,10 @@ export default function ProfilePage() {
                     : prev
             );
 
-            alert(
-                "Foto profile berhasil dihapus"
-            );
+            showAlert("Berhasil!", "Foto profile berhasil dihapus.", true);
 
         } catch (error: any) {
-            alert(error.message);
+            showAlert("Gagal!", error.message || "Gagal menghapus foto.", false);
         } finally {
             setUploading(false);
         }
@@ -335,7 +348,7 @@ export default function ProfilePage() {
                                 type="button"
                                 variant="ghost"
                                 size="sm"
-                                onClick={deleteAvatar}
+                                onClick={() => setConfirmDeleteOpen(true)}
                                 disabled={uploading}
                                 className="mt-2 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30 gap-1"
                             >
@@ -352,7 +365,7 @@ export default function ProfilePage() {
                                     <ShieldCheck className="w-4 h-4 text-emerald-600" /> Level
                                 </span>
                                 <Badge variant="secondary" className="capitalize font-semibold bg-emerald-50 text-emerald-700 hover:bg-emerald-50 dark:bg-emerald-950/50 dark:text-emerald-400">
-                                    {user?.user_metadata?.role || profile?.role || "Member"}
+                                    {user?.user_metadata?.role || profile?.level || "Member"}
                                 </Badge>
                             </div>
                             <div className="flex items-center justify-between text-slate-600 dark:text-slate-400">
@@ -441,6 +454,63 @@ export default function ProfilePage() {
                 </Card>
 
             </div>
+
+            {/* Alert Dialog — Sukses / Gagal */}
+            <AlertDialog open={alertOpen} onOpenChange={setAlertOpen}>
+                <AlertDialogContent className="rounded-2xl max-w-[90%] sm:max-w-sm">
+                    <AlertDialogHeader>
+                        <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-2 ${alertSuccess ? "bg-emerald-100" : "bg-red-100"
+                            }`}>
+                            {alertSuccess
+                                ? <CheckCircle2 className="w-6 h-6 text-emerald-600" />
+                                : <AlertCircle className="w-6 h-6 text-red-600" />
+                            }
+                        </div>
+                        <AlertDialogTitle className="text-center text-base font-bold text-slate-900">
+                            {alertTitle}
+                        </AlertDialogTitle>
+                        <AlertDialogDescription className="text-center text-sm text-slate-500">
+                            {alertMsg}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter className="mt-2">
+                        <AlertDialogAction className={`h-9 rounded-xl text-xs font-semibold text-white ${alertSuccess
+                            ? "bg-emerald-600 hover:bg-emerald-700"
+                            : "bg-red-600 hover:bg-red-700"
+                            }`}>
+                            OK
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            {/* Confirm Dialog — Hapus Foto */}
+            <AlertDialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
+                <AlertDialogContent className="rounded-2xl max-w-[90%] sm:max-w-sm">
+                    <AlertDialogHeader>
+                        <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-2">
+                            <Trash2 className="w-6 h-6 text-red-600" />
+                        </div>
+                        <AlertDialogTitle className="text-center text-base font-bold text-slate-900">
+                            Hapus Foto Profile?
+                        </AlertDialogTitle>
+                        <AlertDialogDescription className="text-center text-sm text-slate-500">
+                            Foto profile kamu akan dihapus secara permanen.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter className="flex-row gap-2 mt-2">
+                        <AlertDialogCancel className="text-xs font-semibold h-9 rounded-xl border-slate-200 text-slate-600 mt-0 flex-1 sm:flex-none">
+                            Batal
+                        </AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={deleteAvatar}
+                            className="text-xs font-semibold h-9 rounded-xl bg-red-600 hover:bg-red-700 text-white flex-1 sm:flex-none"
+                        >
+                            Ya, Hapus
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }

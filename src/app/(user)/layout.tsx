@@ -9,6 +9,7 @@ const HIDE_FOOTER_ROUTES = ["/carts"];
 
 // Route user yang WAJIB login
 const PROTECTED_USER_ROUTES = [
+    "/",
     "/profile",
     "/orders",
     "/carts",
