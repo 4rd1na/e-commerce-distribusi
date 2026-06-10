@@ -35,6 +35,7 @@ export default function ProductDetailPage() {
     const [activeIdx, setActiveIdx] = useState<number>(0);
     const [api, setApi] = useState<CarouselApi>();
     const [zoomSrc, setZoomSrc] = useState<string | null>(null);
+    const [zoomType, setZoomType] = useState<"image" | "video">("image");
 
     useEffect(() => {
         fetchProduct();
@@ -269,12 +270,18 @@ export default function ProductDetailPage() {
                         <Carousel
                             setApi={setApi}
                             opts={{ loop: true }}
-                            className="w-full h-full"
+                            className="w-full h-full [&>div]:h-full"
                         >
-                            <CarouselContent className="h-full ml-0">
+                            <CarouselContent className="h-full !ml-0">
                                 {productMedia.map((mediaItem: any, idx: number) => (
-                                    <CarouselItem key={idx} className="pl-0 h-full">
-                                        <div className="w-full h-full flex items-center justify-center relative">
+                                    <CarouselItem key={idx} className="!pl-0 h-full">
+                                        <div
+                                            className="w-full h-full flex items-center justify-center relative cursor-zoom-in"
+                                            onClick={() => {
+                                                setZoomSrc(mediaItem?.media_url);
+                                                setZoomType(mediaItem?.media_type === "video" ? "video" : "image");
+                                            }}
+                                        >
                                             {mediaItem?.media_type === "video" ? (
                                                 <video
                                                     src={mediaItem?.media_url}
@@ -286,8 +293,7 @@ export default function ProductDetailPage() {
                                                 <img
                                                     src={mediaItem?.media_url}
                                                     alt={`${product.name}-${idx}`}
-                                                    className="w-full h-full object-cover cursor-zoom-in"
-                                                    onClick={() => setZoomSrc(mediaItem?.media_url)}
+                                                    className="w-full h-full object-cover"
                                                 />
                                             )}
                                         </div>
@@ -311,12 +317,10 @@ export default function ProductDetailPage() {
                             </div>
                         )}
 
-                        {/* Ikon Zoom (hint) */}
-                        {productMedia[activeIdx]?.media_type !== "video" && (
-                            <div className="absolute left-3 bottom-3 z-10 bg-slate-950/60 backdrop-blur-sm text-white text-[10px] px-2 py-0.5 rounded-full flex items-center gap-1 opacity-0 group-hover:opacity-100 transition duration-200">
-                                <ZoomIn className="w-3 h-3" /> Perbesar
-                            </div>
-                        )}
+                        {/* Ikon Zoom (hint) — selalu tampil untuk gambar & video */}
+                        <div className="absolute left-3 bottom-3 z-10 bg-slate-950/60 backdrop-blur-sm text-white text-[10px] px-2 py-0.5 rounded-full flex items-center gap-1 opacity-0 group-hover:opacity-100 transition duration-200">
+                            <ZoomIn className="w-3 h-3" /> Perbesar
+                        </div>
                     </div>
 
                     {/* Thumbnail */}
@@ -348,7 +352,7 @@ export default function ProductDetailPage() {
                     )}
                 </div>
 
-                {/* ZOOM MODAL */}
+                {/* ZOOM MODAL — gambar & video */}
                 {zoomSrc && (
                     <div
                         className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center cursor-zoom-out"
@@ -360,11 +364,22 @@ export default function ProductDetailPage() {
                         >
                             <X className="w-5 h-5" />
                         </button>
-                        <img
-                            src={zoomSrc}
-                            alt="Zoom"
-                            className="max-w-[95vw] max-h-[95vh] object-contain"
-                        />
+                        {zoomType === "video" ? (
+                            <video
+                                src={zoomSrc}
+                                controls
+                                autoPlay
+                                playsInline
+                                className="max-w-[95vw] max-h-[90vh] object-contain"
+                                onClick={(e) => e.stopPropagation()}
+                            />
+                        ) : (
+                            <img
+                                src={zoomSrc}
+                                alt="Zoom"
+                                className="max-w-[95vw] max-h-[95vh] object-contain"
+                            />
+                        )}
                     </div>
                 )}
 
