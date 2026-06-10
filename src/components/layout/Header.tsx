@@ -56,22 +56,41 @@ export default function Header() {
     useEffect(() => {
         getSession();
 
-        // Jalankan pengecekan ulang jumlah cart tiap kali ada event 'cart-updated' dipicu
-        const handleCartUpdateEvent = () => {
-            getCartCountOnly();
-        };
-
-        window.addEventListener("cart-updated", handleCartUpdateEvent);
-
+        // Auth state listener
         const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
             getSession();
         });
 
         return () => {
             subscription.unsubscribe();
-            window.removeEventListener("cart-updated", handleCartUpdateEvent);
         };
     }, []);
+
+    // ── Supabase Realtime: dengarkan perubahan di tabel cart_items ──
+    // Setiap ada INSERT/UPDATE/DELETE di cart_items, otomatis refresh jumlah cart
+    useEffect(() => {
+        if (!user) return;
+
+        const channel = supabase
+            .channel("cart-count-realtime")
+            .on(
+                "postgres_changes",
+                {
+                    event: "*",          // INSERT, UPDATE, DELETE — semua
+                    schema: "public",
+                    table: "cart_items", // tabel yang didengarkan
+                },
+                () => {
+                    // Ada perubahan di cart_items → fetch ulang jumlah
+                    getCartCountOnly();
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [user]); // re-subscribe setiap kali user berubah (login/logout)
 
     const getSession = async () => {
         try {

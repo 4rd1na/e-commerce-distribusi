@@ -133,7 +133,6 @@ export default function CartPage() {
                 .eq("id", itemId);
 
             if (error) throw error;
-            window.dispatchEvent(new Event("cart-updated"));
         } catch (err) {
             console.error(err);
             fetchCart();
@@ -151,7 +150,6 @@ export default function CartPage() {
                 .eq("id", itemId);
 
             if (error) throw error;
-            window.dispatchEvent(new Event("cart-updated"));
         } catch (err) {
             console.error(err);
             fetchCart();

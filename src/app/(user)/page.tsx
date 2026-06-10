@@ -226,8 +226,6 @@ export default function ProductsPage() {
         if (insertError) throw insertError;
       }
 
-      window.dispatchEvent(new Event("cart-updated"));
-
       if (redirectToCart) {
         router.push("/carts");
       } else {
