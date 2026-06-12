@@ -506,13 +506,13 @@ export default function ProductDetailPage() {
             {/* TOAST MESSAGE */}
             {showToast && (
                 <div className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none animate-in fade-in zoom-in-95 duration-200">
-                    <div className="bg-white border border-emerald-200 text-slate-800 px-5 py-3.5 rounded-2xl shadow-xl shadow-emerald-600/10 flex items-center gap-3 max-w-xs backdrop-blur-sm">
-                        <div className="w-8 h-8 bg-emerald-600 rounded-full flex items-center justify-center shrink-0">
-                            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="flex items-center gap-2.5 rounded-2xl px-5 py-3 shadow-lg backdrop-blur-sm bg-white/95 border border-slate-200">
+                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-50">
+                            <svg className="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" />
                             </svg>
                         </div>
-                        <p className="text-sm font-semibold text-slate-800">
+                        <p className="text-sm font-medium text-slate-700">
                             Berhasil dimasukkan ke keranjang
                         </p>
                     </div>

@@ -40,6 +40,13 @@ import {
     CalendarDays,
     MessageSquare,
     ArrowUpRight,
+    Trash2,
+    Ban,
+    ChevronLeft,
+    ChevronRight,
+    FileCheck,
+    FileX,
+    PauseCircle,
 } from "lucide-react";
 
 // ── Type ──
@@ -52,7 +59,7 @@ interface RawPartnerRequest {
     company_name: string | null;
     notes: string | null;
     attachment_url: string | null;
-    status: "pending" | "approved" | "rejected";
+    status: "pending" | "approved" | "rejected" | "dinonaktifkan";
     created_at: string;
     profiles: {
         full_name: string;
@@ -68,7 +75,7 @@ interface PartnerRequest {
     company_name: string | null;
     notes: string | null;
     attachment_url: string | null;
-    status: "pending" | "approved" | "rejected";
+    status: "pending" | "approved" | "rejected" | "dinonaktifkan";
     created_at: string;
     profile: {
         full_name: string;
@@ -77,7 +84,7 @@ interface PartnerRequest {
     } | null;
 }
 
-type FilterTab = "all" | "pending" | "approved" | "rejected";
+type FilterTab = "all" | "pending" | "approved" | "rejected" | "dinonaktifkan";
 
 // ── Label helper ──
 const levelLabels: Record<string, string> = {
@@ -104,6 +111,11 @@ const statusConfig: Record<string, { label: string; icon: React.ReactNode; badge
         icon: <XCircle className="w-3.5 h-3.5" />,
         badgeClass: "bg-red-100 text-red-600 hover:bg-red-100",
     },
+    dinonaktifkan: {
+        label: "Dinonaktifkan",
+        icon: <Ban className="w-3.5 h-3.5" />,
+        badgeClass: "bg-slate-200 text-slate-600 hover:bg-slate-200",
+    },
 };
 
 // ── Normalize data dari Supabase ──
@@ -121,6 +133,10 @@ export default function PartnerRequestsPage() {
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<FilterTab>("all");
 
+    // Pagination
+    const [currentPage, setCurrentPage] = useState(1);
+    const ITEMS_PER_PAGE = 5;
+
     // Confirm dialog state (approve/reject)
     const [dialogOpen, setDialogOpen] = useState(false);
     const [dialogAction, setDialogAction] = useState<"approve" | "reject">("approve");
@@ -130,6 +146,14 @@ export default function PartnerRequestsPage() {
     // Detail dialog state
     const [detailOpen, setDetailOpen] = useState(false);
     const [detailRequest, setDetailRequest] = useState<PartnerRequest | null>(null);
+
+    // Delete dialog state
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [deleteTarget, setDeleteTarget] = useState<PartnerRequest | null>(null);
+
+    // Deactivate dialog state
+    const [deactivateDialogOpen, setDeactivateDialogOpen] = useState(false);
+    const [deactivateTarget, setDeactivateTarget] = useState<PartnerRequest | null>(null);
 
     // ── Fetch data ──
     const fetchRequests = async () => {
@@ -168,6 +192,11 @@ export default function PartnerRequestsPage() {
         fetchRequests();
     }, []);
 
+    // Reset page saat tab berubah
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [activeTab]);
+
     // ── Filter data ──
     const filtered = activeTab === "all"
         ? requests
@@ -178,7 +207,15 @@ export default function PartnerRequestsPage() {
         pending: requests.filter((r) => r.status === "pending").length,
         approved: requests.filter((r) => r.status === "approved").length,
         rejected: requests.filter((r) => r.status === "rejected").length,
+        dinonaktifkan: requests.filter((r) => r.status === "dinonaktifkan").length,
     };
+
+    // ── Pagination ──
+    const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
+    const paginatedData = filtered.slice(
+        (currentPage - 1) * ITEMS_PER_PAGE,
+        currentPage * ITEMS_PER_PAGE
+    );
 
     // ── Handle Approve ──
     const handleApprove = async () => {
@@ -239,7 +276,59 @@ export default function PartnerRequestsPage() {
         }
     };
 
-    // ── Open confirm dialog ──
+    // ── Handle Delete ──
+    const handleDelete = async () => {
+        if (!deleteTarget) return;
+        try {
+            setProcessing(true);
+            const { error } = await supabase
+                .from("partner_requests")
+                .delete()
+                .eq("id", deleteTarget.id);
+            if (error) throw error;
+            await fetchRequests();
+        } catch (err) {
+            console.error("Error deleting request:", err);
+            alert("Gagal menghapus pengajuan. Coba lagi.");
+        } finally {
+            setProcessing(false);
+            setDeleteDialogOpen(false);
+            setDeleteTarget(null);
+        }
+    };
+
+    // ── Handle Deactivate (Nonaktifkan) ──
+    const handleDeactivate = async () => {
+        if (!deactivateTarget) return;
+        try {
+            setProcessing(true);
+
+            // 1. Update status partner_request → dinonaktifkan
+            const { error: updateStatusError } = await supabase
+                .from("partner_requests")
+                .update({ status: "dinonaktifkan" })
+                .eq("id", deactivateTarget.id);
+            if (updateStatusError) throw updateStatusError;
+
+            // 2. Revert user level ke konsumen
+            const { error: updateProfileError } = await supabase
+                .from("profiles")
+                .update({ level: "konsumen" })
+                .eq("id", deactivateTarget.user_id);
+            if (updateProfileError) throw updateProfileError;
+
+            await fetchRequests();
+        } catch (err) {
+            console.error("Error deactivating partner:", err);
+            alert("Gagal menonaktifkan mitra. Coba lagi.");
+        } finally {
+            setProcessing(false);
+            setDeactivateDialogOpen(false);
+            setDeactivateTarget(null);
+        }
+    };
+
+    // ── Open confirm dialogs ──
     const openConfirm = (action: "approve" | "reject", request: PartnerRequest) => {
         setDialogAction(action);
         setSelectedRequest(request);
@@ -250,6 +339,16 @@ export default function PartnerRequestsPage() {
     const openDetail = (request: PartnerRequest) => {
         setDetailRequest(request);
         setDetailOpen(true);
+    };
+
+    const openDeleteConfirm = (request: PartnerRequest) => {
+        setDeleteTarget(request);
+        setDeleteDialogOpen(true);
+    };
+
+    const openDeactivateConfirm = (request: PartnerRequest) => {
+        setDeactivateTarget(request);
+        setDeactivateDialogOpen(true);
     };
 
     // ── Format date ──
@@ -273,6 +372,7 @@ export default function PartnerRequestsPage() {
         { key: "pending", label: "Pending" },
         { key: "approved", label: "Disetujui" },
         { key: "rejected", label: "Ditolak" },
+        { key: "dinonaktifkan", label: "Dinonaktifkan" },
     ];
 
     // ── Render ──
@@ -286,6 +386,64 @@ export default function PartnerRequestsPage() {
                 <p className="text-sm text-slate-500 mt-1">
                     Kelola permintaan upgrade level dari user
                 </p>
+            </div>
+
+            {/* Dashboard Cards */}
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                {/* Total Pengajuan */}
+                <div className="bg-white border border-slate-200 rounded-xl p-4 flex items-center gap-3">
+                    <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center shrink-0">
+                        <Users className="w-5 h-5 text-slate-600" />
+                    </div>
+                    <div>
+                        <p className="text-[11px] text-slate-400">Total Pengajuan</p>
+                        <p className="text-xl font-bold text-slate-900">{counts.all}</p>
+                    </div>
+                </div>
+
+                {/* Pending */}
+                <div className="bg-white border border-slate-200 rounded-xl p-4 flex items-center gap-3">
+                    <div className="w-10 h-10 bg-yellow-50 rounded-lg flex items-center justify-center shrink-0">
+                        <Clock className="w-5 h-5 text-yellow-600" />
+                    </div>
+                    <div>
+                        <p className="text-[11px] text-slate-400">Pending</p>
+                        <p className="text-xl font-bold text-yellow-700">{counts.pending}</p>
+                    </div>
+                </div>
+
+                {/* Disetujui (Aktif) */}
+                <div className="bg-white border border-slate-200 rounded-xl p-4 flex items-center gap-3">
+                    <div className="w-10 h-10 bg-emerald-50 rounded-lg flex items-center justify-center shrink-0">
+                        <FileCheck className="w-5 h-5 text-emerald-600" />
+                    </div>
+                    <div>
+                        < p className="text-[11px] text-slate-400">Disetujui</p>
+                        <p className="text-xl font-bold text-emerald-700">{counts.approved}</p>
+                    </div>
+                </div>
+
+                {/* Ditolak */}
+                <div className="bg-white border border-slate-200 rounded-xl p-4 flex items-center gap-3">
+                    <div className="w-10 h-10 bg-red-50 rounded-lg flex items-center justify-center shrink-0">
+                        <FileX className="w-5 h-5 text-red-600" />
+                    </div>
+                    <div>
+                        <p className="text-[11px] text-slate-400">Ditolak</p>
+                        <p className="text-xl font-bold text-red-600">{counts.rejected}</p>
+                    </div>
+                </div>
+
+                {/* Dinonaktifkan */}
+                <div className="bg-white border border-slate-200 rounded-xl p-4 flex items-center gap-3">
+                    <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center shrink-0">
+                        <PauseCircle className="w-5 h-5 text-slate-500" />
+                    </div>
+                    <div>
+                        <p className="text-[11px] text-slate-400">Dinonaktifkan</p>
+                        <p className="text-xl font-bold text-slate-600">{counts.dinonaktifkan}</p>
+                    </div>
+                </div>
             </div>
 
             {/* Tab Filter */}
@@ -358,7 +516,7 @@ export default function PartnerRequestsPage() {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {filtered.map((req) => {
+                                {paginatedData.map((req) => {
                                     const status = statusConfig[req.status];
                                     return (
                                         <TableRow key={req.id} className="hover:bg-slate-50/50">
@@ -448,6 +606,30 @@ export default function PartnerRequestsPage() {
                                                             </Button>
                                                         </>
                                                     )}
+
+                                                    {/* Nonaktifkan — hanya jika approved */}
+                                                    {req.status === "approved" && (
+                                                        <Button
+                                                            size="sm"
+                                                            variant="outline"
+                                                            className="h-8 text-xs text-slate-600 border-slate-300 hover:bg-slate-100 rounded-lg"
+                                                            onClick={() => openDeactivateConfirm(req)}
+                                                        >
+                                                            <Ban className="w-3.5 h-3.5 mr-1" />
+                                                            Nonaktifkan
+                                                        </Button>
+                                                    )}
+
+                                                    {/* Hapus — semua status */}
+                                                    <Button
+                                                        size="sm"
+                                                        variant="ghost"
+                                                        className="h-8 text-xs text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg"
+                                                        onClick={() => openDeleteConfirm(req)}
+                                                    >
+                                                        <Trash2 className="w-3.5 h-3.5 mr-1" />
+                                                        Hapus
+                                                    </Button>
                                                 </div>
                                             </TableCell>
                                         </TableRow>
@@ -456,6 +638,50 @@ export default function PartnerRequestsPage() {
                             </TableBody>
                         </Table>
                     </div>
+
+                    {/* Pagination */}
+                    {totalPages > 1 && (
+                        <div className="flex items-center justify-between px-4 py-3 border-t border-slate-200 bg-slate-50/50">
+                            <p className="text-xs text-slate-500">
+                                Menampilkan {((currentPage - 1) * ITEMS_PER_PAGE) + 1}–{Math.min(currentPage * ITEMS_PER_PAGE, filtered.length)} dari {filtered.length} pengajuan
+                            </p>
+                            <div className="flex items-center gap-1">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-8 w-8 p-0 rounded-lg"
+                                    disabled={currentPage === 1}
+                                    onClick={() => setCurrentPage((p) => p - 1)}
+                                >
+                                    <ChevronLeft className="w-4 h-4" />
+                                </Button>
+                                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                                    <Button
+                                        key={page}
+                                        variant={page === currentPage ? "default" : "outline"}
+                                        size="sm"
+                                        className={`h-8 w-8 p-0 rounded-lg text-xs ${
+                                            page === currentPage
+                                                ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+                                                : "text-slate-600"
+                                        }`}
+                                        onClick={() => setCurrentPage(page)}
+                                    >
+                                        {page}
+                                    </Button>
+                                ))}
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-8 w-8 p-0 rounded-lg"
+                                    disabled={currentPage === totalPages}
+                                    onClick={() => setCurrentPage((p) => p + 1)}
+                                >
+                                    <ChevronRight className="w-4 h-4" />
+                                </Button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
 
@@ -568,7 +794,6 @@ export default function PartnerRequestsPage() {
                                             Berkas Pendukung
                                         </p>
                                         {isImageUrl(detailRequest.attachment_url) ? (
-                                            /* Tampilkan gambar langsung */
                                             <a
                                                 href={detailRequest.attachment_url}
                                                 target="_blank"
@@ -584,7 +809,6 @@ export default function PartnerRequestsPage() {
                                                 </p>
                                             </a>
                                         ) : (
-                                            /* PDF / file lain → tombol download */
                                             <a
                                                 href={detailRequest.attachment_url}
                                                 target="_blank"
@@ -598,9 +822,10 @@ export default function PartnerRequestsPage() {
                                     </div>
                                 )}
 
-                                {/* Action Buttons di Detail — hanya jika pending */}
-                                {detailRequest.status === "pending" && (
-                                    <div className="flex gap-2 pt-2 border-t border-slate-100">
+                                {/* Action Buttons di Detail */}
+                                <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-100">
+                                    {/* Approve — hanya jika pending */}
+                                    {detailRequest.status === "pending" && (
                                         <Button
                                             className="flex-1 h-10 bg-emerald-600 hover:bg-emerald-700 rounded-xl text-sm font-semibold"
                                             onClick={() => {
@@ -611,6 +836,10 @@ export default function PartnerRequestsPage() {
                                             <CheckCircle2 className="w-4 h-4 mr-1.5" />
                                             Setujui
                                         </Button>
+                                    )}
+
+                                    {/* Reject — hanya jika pending */}
+                                    {detailRequest.status === "pending" && (
                                         <Button
                                             variant="outline"
                                             className="flex-1 h-10 text-red-600 border-red-200 hover:bg-red-50 rounded-xl text-sm font-semibold"
@@ -622,8 +851,36 @@ export default function PartnerRequestsPage() {
                                             <XCircle className="w-4 h-4 mr-1.5" />
                                             Tolak
                                         </Button>
-                                    </div>
-                                )}
+                                    )}
+
+                                    {/* Nonaktifkan — hanya jika approved */}
+                                    {detailRequest.status === "approved" && (
+                                        <Button
+                                            variant="outline"
+                                            className="flex-1 h-10 text-slate-600 border-slate-300 hover:bg-slate-100 rounded-xl text-sm font-semibold"
+                                            onClick={() => {
+                                                setDetailOpen(false);
+                                                openDeactivateConfirm(detailRequest);
+                                            }}
+                                        >
+                                            <Ban className="w-4 h-4 mr-1.5" />
+                                            Nonaktifkan
+                                        </Button>
+                                    )}
+
+                                    {/* Hapus — semua status */}
+                                    <Button
+                                        variant="outline"
+                                        className="flex-1 h-10 text-red-500 border-red-200 hover:bg-red-50 rounded-xl text-sm font-semibold"
+                                        onClick={() => {
+                                            setDetailOpen(false);
+                                            openDeleteConfirm(detailRequest);
+                                        }}
+                                    >
+                                        <Trash2 className="w-4 h-4 mr-1.5" />
+                                        Hapus
+                                    </Button>
+                                </div>
                             </div>
                         </>
                     )}
@@ -686,6 +943,81 @@ export default function PartnerRequestsPage() {
                                     ? "Ya, Setujui"
                                     : "Ya, Tolak"
                             }
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            {/* ── Delete Confirm Dialog ── */}
+            <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+                <AlertDialogContent className="rounded-2xl max-w-[90%] sm:max-w-md">
+                    <AlertDialogHeader>
+                        <AlertDialogTitle className="text-base font-bold text-slate-900">
+                            Hapus Pengajuan Kemitraan?
+                        </AlertDialogTitle>
+                        <AlertDialogDescription className="text-sm text-slate-500">
+                            {deleteTarget && (
+                                <>
+                                    Pengajuan dari{" "}
+                                    <span className="font-semibold text-slate-700">
+                                        {deleteTarget.profile?.full_name}
+                                    </span>{" "}
+                                    akan dihapus secara permanen. Tindakan ini tidak dapat dibatalkan.
+                                </>
+                            )}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter className="flex-row gap-2 mt-2">
+                        <AlertDialogCancel
+                            disabled={processing}
+                            className="text-xs font-semibold h-9 rounded-xl border-slate-200 text-slate-600 mt-0 flex-1 sm:flex-none"
+                        >
+                            Batal
+                        </AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={handleDelete}
+                            disabled={processing}
+                            className="text-xs font-semibold h-9 rounded-xl text-white bg-red-600 hover:bg-red-700 flex-1 sm:flex-none"
+                        >
+                            {processing ? "Menghapus..." : "Ya, Hapus"}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            {/* ── Deactivate Confirm Dialog ── */}
+            <AlertDialog open={deactivateDialogOpen} onOpenChange={setDeactivateDialogOpen}>
+                <AlertDialogContent className="rounded-2xl max-w-[90%] sm:max-w-md">
+                    <AlertDialogHeader>
+                        <AlertDialogTitle className="text-base font-bold text-slate-900">
+                            Nonaktifkan Kemitraan?
+                        </AlertDialogTitle>
+                        <AlertDialogDescription className="text-sm text-slate-500">
+                            {deactivateTarget && (
+                                <>
+                                    Kemitraan{" "}
+                                    <span className="font-semibold text-slate-700">
+                                        {deactivateTarget.profile?.full_name}
+                                    </span>{" "}
+                                    akan dinonaktifkan. Level user akan dikembalikan menjadi{" "}
+                                    <span className="font-semibold text-slate-600">Konsumen</span>.
+                                </>
+                            )}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter className="flex-row gap-2 mt-2">
+                        <AlertDialogCancel
+                            disabled={processing}
+                            className="text-xs font-semibold h-9 rounded-xl border-slate-200 text-slate-600 mt-0 flex-1 sm:flex-none"
+                        >
+                            Batal
+                        </AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={handleDeactivate}
+                            disabled={processing}
+                            className="text-xs font-semibold h-9 rounded-xl text-white bg-slate-600 hover:bg-slate-700 flex-1 sm:flex-none"
+                        >
+                            {processing ? "Memproses..." : "Ya, Nonaktifkan"}
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>

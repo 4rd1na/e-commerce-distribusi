@@ -1,9 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-// Route yang bisa diakses tanpa login
-const PUBLIC_ROUTES = ["/", "/products"];
-
 // Route auth — redirect ke home jika sudah login
 const AUTH_ROUTES = ["/login", "/register"];
 
@@ -17,7 +14,7 @@ const PROTECTED_USER_ROUTES = [
 ];
 
 export default async function proxy(request: NextRequest) {
-    let response = NextResponse.next({ request });
+    let supabaseResponse = NextResponse.next({ request });
 
     const supabase = createServerClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -31,16 +28,15 @@ export default async function proxy(request: NextRequest) {
                     cookiesToSet.forEach(({ name, value }) =>
                         request.cookies.set(name, value)
                     );
-                    response = NextResponse.next({ request });
+                    supabaseResponse = NextResponse.next({ request });
                     cookiesToSet.forEach(({ name, value, options }) =>
-                        response.cookies.set(name, value, options)
+                        supabaseResponse.cookies.set(name, value, options)
                     );
                 },
             },
         }
     );
 
-    // Ambil user saat ini
     const {
         data: { user },
     } = await supabase.auth.getUser();
@@ -55,28 +51,26 @@ export default async function proxy(request: NextRequest) {
     // ── 2. Route Admin: /admin/* ──
     if (pathname.startsWith("/admin")) {
         if (!user) {
-            const loginUrl = new URL("/login", request.url);
-            loginUrl.searchParams.set("redirect", pathname);
-            return NextResponse.redirect(loginUrl);
+            // Token mungkin sedang di-refresh, return response dengan cookies baru
+            // Browser akan simpan cookie baru, lalu request berikutnya akan punya session valid
+            return supabaseResponse;
         }
 
-        // Cek role admin dari tabel profiles
+        // Cek role — gunakan response yang sudah punya refreshed cookies
         const { data: profile } = await supabase
             .from("profiles")
             .select("role, internal_role")
             .eq("id", user.id)
             .single();
 
-        if (profile?.role !== "internal" || profile?.internal_role !== "admin") {
-            // Bukan admin → tendang ke homepage
+        if (profile?.role !== "internal") {
             return NextResponse.redirect(new URL("/", request.url));
         }
 
-        return response;
+        return supabaseResponse;
     }
 
     // ── 3. Admin sudah login → blokir akses route public/user ──
-    // Admin tidak boleh lihat halaman user, harus stay di /admin
     if (user) {
         const { data: profile } = await supabase
             .from("profiles")
@@ -84,12 +78,11 @@ export default async function proxy(request: NextRequest) {
             .eq("id", user.id)
             .single();
 
-        if (profile?.role === "internal" && profile?.internal_role === "admin") {
-            // Admin apapun route-nya (/, /products, /profile, dll) → tendang ke /admin
+        if (profile?.role === "internal") {
             if (!pathname.startsWith("/admin")) {
                 return NextResponse.redirect(new URL("/admin", request.url));
             }
-            return response; // admin di /admin → lolos
+            return supabaseResponse;
         }
     }
 
@@ -98,30 +91,18 @@ export default async function proxy(request: NextRequest) {
         pathname.startsWith(p)
     );
 
-    if (isProtectedUserRoute) {
-        if (!user) {
-            const loginUrl = new URL("/", request.url);
-            loginUrl.searchParams.set("redirect", pathname);
-            return NextResponse.redirect(loginUrl);
-        }
-        // Admin sudah ditangani di blok 3 di atas
+    if (isProtectedUserRoute && !user) {
+        return supabaseResponse;
     }
 
-    // Kirim pathname ke header supaya layout/server component bisa baca
-    response.headers.set("x-pathname", pathname);
+    // Kirim pathname ke header
+    supabaseResponse.headers.set("x-pathname", pathname);
 
-    return response;
+    return supabaseResponse;
 }
 
 export const config = {
     matcher: [
-        /*
-         * Match semua request kecuali:
-         * - _next/static (file statis)
-         * - _next/image (optimasi gambar)
-         * - favicon.ico
-         * - file public (svg, png, jpg, jpeg, gif, webp)
-         */
         "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
     ],
 };

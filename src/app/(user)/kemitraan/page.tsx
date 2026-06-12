@@ -160,7 +160,7 @@ export default function PartnerRequestPage() {
                 <CheckCircle2 className="w-16 h-16 text-emerald-500 mx-auto mb-4" />
                 <h2 className="text-xl font-bold text-slate-900 mb-2">Pengajuan Terkirim!</h2>
                 <p className="text-slate-600 text-sm mb-6">
-                    Permintaan kemitraan Anda sedang ditinjau oleh tim Admin DinaMart. Status awal pengajuan Anda adalah <strong>Pending</strong>.
+                    Permintaan kemitraan Anda sedang ditinjau oleh tim Admin DinaraMart. Status awal pengajuan Anda adalah <strong>Pending</strong>.
                 </p>
                 <Button onClick={() => router.push("/")} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl">
                     Kembali ke Beranda
@@ -192,7 +192,7 @@ export default function PartnerRequestPage() {
                     </span>.
                 </p>
                 <p className="text-xs text-slate-400 mb-6">
-                    Mohon tunggu konfirmasi dari Admin DinaMart.
+                    Mohon tunggu konfirmasi dari Admin DinaraMart.
                 </p>
                 <Button onClick={() => router.push("/")} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl">
                     Kembali ke Beranda
@@ -218,7 +218,7 @@ export default function PartnerRequestPage() {
                     <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 text-xs">
                         {levelLabels[currentLevel]}
                     </Badge>
-                    {" "}— level tertinggi dalam sistem kemitraan DinaMart.
+                    {" "}— level tertinggi dalam sistem kemitraan DinaraMart.
                 </p>
                 <Button onClick={() => router.push("/")} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl">
                     Kembali ke Beranda
@@ -233,7 +233,7 @@ export default function PartnerRequestPage() {
             <div className="mb-6">
                 <h1 className="text-2xl font-black text-slate-900">Ajukan Kemitraan</h1>
                 <p className="text-sm text-slate-500 mt-1">
-                    Kembangkan bisnis Anda bersama DinaMart dengan jenjang tingkat harga yang lebih menguntungkan.
+                    Kembangkan bisnis Anda bersama DinaraMart dengan jenjang tingkat harga yang lebih menguntungkan.
                 </p>
             </div>
 
