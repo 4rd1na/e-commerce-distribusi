@@ -68,8 +68,8 @@ export default async function proxy(request: NextRequest) {
             .single();
 
         if (profile?.role !== "internal" || profile?.internal_role !== "admin") {
-            // Bukan admin → tendang ke homepage
-            return NextResponse.redirect(new URL("/", request.url));
+            // Bukan admin → tendang ke halaman tidak diizinkan
+            return NextResponse.redirect(new URL("/unauthorized", request.url));
         }
 
         return response;

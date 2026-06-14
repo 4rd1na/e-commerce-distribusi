@@ -90,7 +90,7 @@ export default function AdminSidebar({ isOpen, onClose, role }: AdminSidebarProp
                         </div>
                         <div>
                             <span className="text-sm font-bold text-white tracking-tight block leading-none">
-                                DinaMart
+                                DinaraMart
                             </span>
                             <span className={`text-[10px] ${config.accentText} font-semibold uppercase tracking-widest`}>
                                 {config.label}
@@ -152,7 +152,7 @@ export default function AdminSidebar({ isOpen, onClose, role }: AdminSidebarProp
                             {config.label} Panel v1.0
                         </p>
                         <p className="text-[10px] text-slate-600 mt-0.5">
-                            DinaMart Internal
+                            DinaraMart Internal
                         </p>
                     </div>
                 </div>

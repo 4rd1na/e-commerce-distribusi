@@ -1,515 +1,426 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
+import {
+  Pencil,
+  Save,
+  X,
+  User,
+  Phone,
+  Mail,
+  Camera,
+  Lock,
+  Calendar,
+  AlertCircle,
+  CheckCircle2,
+} from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-import { Badge } from "@/components/ui/badge";
-import {
-    Avatar,
-    AvatarFallback,
-    AvatarImage
-} from "@/components/ui/avatar";
-import { Camera, Calendar, ShieldCheck, Loader2, Trash2, CheckCircle2, AlertCircle } from "lucide-react";
-import {
-    AlertDialog,
-    AlertDialogContent,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogAction,
-    AlertDialogCancel,
-} from "@/components/ui/alert-dialog";
 
-interface Profile {
-    id: string;
-    full_name: string;
-    email: string;
-    phone_number: string | null;
-    avatar_url: string | null;
-    level?: string;
+// 1. TYPE DEFINITIONS & CONFIGURATIONS
+export interface UserData {
+  id: string;
+  full_name: string;
+  email: string | null;
+  phone_number: string | null;
+  avatar_url: string | null;
+  level: "konsumen" | "reseller" | "sub_agen" | "agen" | "distributor";
+  role: "external" | "internal";
+  internal_role: "admin" | "billing" | "support";
+  is_active: boolean;
+  created_at: string | null;
+  updated_at: string | null;
 }
 
-export default function ProfilePage() {
-    const [loading, setLoading] = useState(true);
-    const [saving, setSaving] = useState(false);
-    const [uploading, setUploading] = useState(false);
-    const [user, setUser] = useState<any>(null);
-    const [profile, setProfile] = useState<Profile | null>(null);
-    const [fullName, setFullName] = useState("");
-    const [email, setEmail] = useState("");
-    const [phoneNumber, setPhoneNumber] = useState("");
-    const [avatarUrl, setAvatarUrl] = useState("");
+const LEVEL_CONFIG = {
+  konsumen: { label: "Konsumen", color: "bg-slate-100 text-slate-700 border-slate-200" },
+  reseller: { label: "Reseller", color: "bg-blue-50 text-blue-700 border-blue-200" },
+  sub_agen: { label: "Sub-Agen", color: "bg-purple-50 text-purple-700 border-purple-200" },
+  agen: { label: "Agen Resmi", color: "bg-amber-50 text-amber-700 border-amber-200" },
+  distributor: { label: "Distributor Utama", color: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+};
 
-    const [alertOpen, setAlertOpen] = useState(false);
-    const [alertTitle, setAlertTitle] = useState("");
-    const [alertMsg, setAlertMsg] = useState("");
-    const [alertSuccess, setAlertSuccess] = useState(true);
+// 2. MAIN COMPONENT (PAGE)
+export default function Page() {
+  const [userData, setUserData] = useState<UserData | null>(null);
+  const [loading, setLoading] = useState(true);
 
-    const showAlert = (title: string, msg: string, success: boolean) => {
-        setAlertTitle(title);
-        setAlertMsg(msg);
-        setAlertSuccess(success);
-        setAlertOpen(true);
-    };
+  useEffect(() => {
+    fetchUserData();
+  }, []);
 
-    useEffect(() => {
-        getProfile();
-    }, []);
+  const fetchUserData = async () => {
+    try {
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser();
 
-    const getProfile = async () => {
-        try {
-            setLoading(true);
+      if (authError || !user) {
+        console.error("User belum login:", authError);
+        setLoading(false);
+        return;
+      }
 
-            const {
-                data: { user },
-            } = await supabase.auth.getUser();
+      const { data, error } = await supabase
+        .from("profiles")
+        .select(
+          "id, full_name, email, phone_number, avatar_url, level, role, internal_role, is_active, created_at, updated_at",
+        )
+        .eq("id", user.id)
+        .single();
 
-            if (!user) return;
+      if (error) {
+        console.error("Gagal mengambil data profil:", error);
+      }
 
-            setUser(user);
+      if (data) {
+        setUserData(data as UserData);
+      }
+    } catch (err) {
+      console.error("Error unhandled:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-            const { data, error } = await supabase
-                .from("profiles")
-                .select("*")
-                .eq("id", user.id)
-                .single();
+  if (loading) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <div className="flex flex-col items-center gap-2">
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent" />
+          <p className="text-muted-foreground text-sm font-medium text-gray-500">Memuat profil Anda...</p>
+        </div>
+      </div>
+    );
+  }
 
-            if (error) throw error;
+  if (!userData) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center p-4 text-center">
+        <div className="max-w-sm bg-red-50 border border-red-200 rounded-2xl p-6">
+          <p className="text-red-800 font-semibold text-sm">Profil Tidak Ditemukan</p>
+          <p className="text-red-600 text-xs mt-1">Silakan coba muat ulang halaman atau hubungi tim bantuan jika masalah berlanjut.</p>
+        </div>
+      </div>
+    );
+  }
 
-            setProfile(data);
+  return <UserProfile data={userData} setData={setUserData} />;
+}
 
-            setFullName(data.full_name || "");
-            setEmail(data.email || "");
-            setPhoneNumber(
-                data.phone_number || ""
-            );
+// ==========================================
+// 3. SUB-COMPONENT (USER PROFILE VIEW/EDIT)
+// ==========================================
+interface UserProfileProps {
+  data: UserData;
+  setData: React.Dispatch<React.SetStateAction<UserData | null>>;
+}
 
-            setAvatarUrl(data.avatar_url || "");
+function UserProfile({ data, setData }: UserProfileProps) {
+  const [isEdit, setIsEdit] = useState(false);
+  const [tempData, setTempData] = useState<UserData>(data);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
-        } catch (error) {
-            console.error(error);
-        } finally {
-            setLoading(false);
-        }
-    };
+  const showToast = (message: string, type: "success" | "error" = "success") => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
 
-    const getInitials = (name?: string) => {
-        if (!name) return "U";
+  useEffect(() => {
+    setTempData(data);
+  }, [data]);
 
-        return name
-            .trim()
-            .split(" ")
-            .filter(Boolean)
-            .map((part) => part.charAt(0))
-            .join("")
-            .slice(0, 2)
-            .toUpperCase();
-    };
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setTempData({ ...tempData, [e.target.name]: e.target.value });
+  };
 
-    const handleSave = async () => {
-        try {
-            setSaving(true);
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
 
-            const { error } = await supabase
-                .from("profiles")
-                .update({
-                    full_name: fullName,
-                    phone_number: phoneNumber,
-                    updated_at: new Date(),
-                })
-                .eq("id", user.id);
-
-            if (error) throw error;
-
-            setProfile((prev) =>
-                prev
-                    ? {
-                        ...prev,
-                        full_name: fullName,
-                        phone_number: phoneNumber,
-                    }
-                    : prev
-            );
-
-            showAlert("Berhasil!", "Profile berhasil diperbarui.", true);
-
-        } catch (error: any) {
-            showAlert("Gagal!", error.message || "Terjadi kesalahan.", false);
-        } finally {
-            setSaving(false);
-        }
-    };
-
-    const uploadAvatar = async (
-        e: React.ChangeEvent<HTMLInputElement>
-    ) => {
-        try {
-            setUploading(true);
-
-            const file =
-                e.target.files?.[0];
-
-            if (!file) return;
-
-            if (
-                !file.type.startsWith("image/")
-            ) {
-                showAlert("Format Salah!", "File harus berupa gambar.", false);
-                return;
-            }
-
-            if (
-                file.size >
-                2 * 1024 * 1024
-            ) {
-                showAlert("Ukuran Terlalu Besar!", "Ukuran maksimal 2MB.", false);
-                return;
-            }
-
-            const ext =
-                file.name.split(".").pop();
-
-            const filePath =
-                `${user.id}/${Date.now()}.${ext}`;
-
-            const { error: uploadError } =
-                await supabase.storage
-                    .from("avatars")
-                    .upload(filePath, file, {
-                        upsert: true,
-                    });
-
-            if (uploadError)
-                throw uploadError;
-
-            const {
-                data: { publicUrl },
-            } = supabase.storage
-                .from("avatars")
-                .getPublicUrl(filePath);
-
-            const { error: updateError } =
-                await supabase
-                    .from("profiles")
-                    .update({
-                        avatar_url: publicUrl,
-                    })
-                    .eq("id", user.id);
-
-            if (updateError)
-                throw updateError;
-
-            setAvatarUrl(publicUrl);
-
-            setProfile((prev) =>
-                prev
-                    ? {
-                        ...prev,
-                        avatar_url: publicUrl,
-                    }
-                    : prev
-            );
-
-            showAlert("Berhasil!", "Foto profile berhasil diupload.", true);
-
-        } catch (error: any) {
-            showAlert("Gagal!", error.message || "Gagal mengupload foto.", false);
-        } finally {
-            setUploading(false);
-        }
-    };
-
-    // Confirm delete state
-    const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
-
-    const deleteAvatar = async () => {
-        setConfirmDeleteOpen(false);
-        try {
-            setUploading(true);
-
-            if (avatarUrl) {
-                const path = avatarUrl.split(
-                    "/storage/v1/object/public/avatars/"
-                )[1];
-
-                if (path) {
-                    await supabase.storage
-                        .from("avatars")
-                        .remove([path]);
-                }
-            }
-
-            const { error } = await supabase
-                .from("profiles")
-                .update({
-                    avatar_url: null,
-                })
-                .eq("id", user.id);
-
-            if (error) throw error;
-
-            setAvatarUrl("");
-
-            setProfile((prev) =>
-                prev
-                    ? {
-                        ...prev,
-                        avatar_url: null,
-                    }
-                    : prev
-            );
-
-            showAlert("Berhasil!", "Foto profile berhasil dihapus.", true);
-
-        } catch (error: any) {
-            showAlert("Gagal!", error.message || "Gagal menghapus foto.", false);
-        } finally {
-            setUploading(false);
-        }
-    };
-
-    // Helper format tanggal (Bergabung Sejak)
-    const formatDate = (dateString?: string) => {
-        if (!dateString) return "-";
-        return new Date(dateString).toLocaleDateString("id-ID", {
-            year: "numeric",
-            month: "long",
-            day: "numeric",
-        });
-    };
-
-    if (loading) {
-        return (
-            <div className="min-h-screen bg-slate-50/50 dark:bg-slate-900 px-4 py-8">
-                <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-[280px_1fr] gap-6">
-                    <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 animate-pulse space-y-4">
-                        <div className="w-24 h-24 rounded-full bg-slate-200 dark:bg-slate-800 mx-auto" />
-                        <div className="h-5 bg-slate-200 dark:bg-slate-800 rounded w-32 mx-auto" />
-                        <div className="h-4 bg-slate-200 dark:bg-slate-800 rounded w-40 mx-auto" />
-                    </div>
-                    <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 animate-pulse space-y-6">
-                        <div className="h-8 bg-slate-200 dark:bg-slate-800 rounded w-48" />
-                        <div className="space-y-4">
-                            <div className="h-10 bg-slate-200 dark:bg-slate-800 rounded-lg" />
-                            <div className="h-10 bg-slate-200 dark:bg-slate-800 rounded-lg" />
-                            <div className="h-10 bg-slate-200 dark:bg-slate-800 rounded-lg" />
-                        </div>
-                    </div>
-                </div>
-            </div>
-        );
+    if (file.size > 2 * 1024 * 1024) {
+      showToast("Ukuran file maksimal 2MB.", "error");
+      return;
+    }
+    if (!file.type.startsWith("image/")) {
+      showToast("Format harus berupa gambar.", "error");
+      return;
     }
 
-    return (
-        <div className="min-h-screen bg-slate-50/50 dark:bg-slate-900 px-4 py-8">
-            <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-[280px_1fr] gap-6">
+    setAvatarFile(file);
+    setTempData({ ...tempData, avatar_url: URL.createObjectURL(file) });
+  };
 
-                {/* KARTU KIRI: AVATAR & INFO STATIS */}
-                <Card className="h-fit shadow-sm border-slate-200 dark:border-slate-800">
-                    <CardContent className="pt-6 flex flex-col items-center">
-                        <div className="relative group">
-                            <Avatar className="w-24 h-24 border-4 border-white shadow-md dark:border-slate-950">
-                                {avatarUrl ? (
-                                    <AvatarImage src={avatarUrl} alt={profile?.full_name || "User"} className="object-cover" />
-                                ) : null}
-                                <AvatarFallback className="bg-emerald-50 text-emerald-700 text-xl font-bold dark:bg-emerald-950 dark:text-emerald-400">
-                                    {getInitials(profile?.full_name || email)}
-                                </AvatarFallback>
-                            </Avatar>
-                            <label className="absolute bottom-0 right-0 h-8 w-8 bg-emerald-600 hover:bg-emerald-700 text-white rounded-full flex items-center justify-center cursor-pointer shadow-md transition-transform active:scale-95">
-                                <Camera className="w-4 h-4" />
-                                <input
-                                    type="file"
-                                    accept="image/*"
-                                    hidden
-                                    onChange={uploadAvatar}
-                                    disabled={uploading}
-                                />
-                            </label>
-                        </div>
+  const uploadAvatarToStorage = async (file: File): Promise<string> => {
+    const fileExt = file.name.split(".").pop();
+    const filePath = `${data.id}/${Date.now()}.${fileExt}`;
 
-                        <div className="mt-4 text-center">
-                            <h2 className="text-lg font-bold text-slate-900 dark:text-slate-50 line-clamp-1">
-                                {profile?.full_name || "User"}
-                            </h2>
-                            <p className="text-sm text-slate-500 dark:text-slate-400 break-all max-w-[220px]">
-                                {email}
-                            </p>
-                        </div>
+    const { error: uploadError } = await supabase.storage
+      .from("avatars")
+      .upload(filePath, file, { cacheControl: "3600", upsert: true });
 
-                        {avatarUrl && (
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setConfirmDeleteOpen(true)}
-                                disabled={uploading}
-                                className="mt-2 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30 gap-1"
-                            >
-                                <Trash2 className="w-3 h-3" /> Hapus Foto
-                            </Button>
-                        )}
+    if (uploadError) throw uploadError;
 
-                        <Separator className="my-5 bg-slate-100 dark:bg-slate-800" />
+    if (data.avatar_url?.includes("/avatars/")) {
+      const oldPath = data.avatar_url.split("/avatars/")[1];
+      await supabase.storage.from("avatars").remove([oldPath]);
+    }
 
-                        {/* INFO LEVEL & TANGGAL BERGABUNG */}
-                        <div className="w-full space-y-3 text-sm">
-                            <div className="flex items-center justify-between text-slate-600 dark:text-slate-400">
-                                <span className="flex items-center gap-1.5 text-xs font-medium">
-                                    <ShieldCheck className="w-4 h-4 text-emerald-600" /> Level
-                                </span>
-                                <Badge variant="secondary" className="capitalize font-semibold bg-emerald-50 text-emerald-700 hover:bg-emerald-50 dark:bg-emerald-950/50 dark:text-emerald-400">
-                                    {user?.user_metadata?.role || profile?.level || "Member"}
-                                </Badge>
-                            </div>
-                            <div className="flex items-center justify-between text-slate-600 dark:text-slate-400">
-                                <span className="flex items-center gap-1.5 text-xs font-medium">
-                                    <Calendar className="w-4 h-4 text-slate-400" /> Bergabung
-                                </span>
-                                <span className="text-xs font-medium text-slate-900 dark:text-slate-200">
-                                    {formatDate(user?.created_at)}
-                                </span>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
+    const { data: { publicUrl } } = supabase.storage.from("avatars").getPublicUrl(filePath);
+    return publicUrl;
+  };
 
-                {/* KARTU KANAN: FORM PENGATURAN */}
-                <Card className="shadow-sm border-slate-200 dark:border-slate-800">
-                    <CardHeader className="pb-4">
-                        <CardTitle className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-50">
-                            Pengaturan Profil
-                        </CardTitle>
-                        <CardDescription>
-                            Kelola dan perbarui informasi data akun pribadi kamu.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-5">
+  const handleSave = async () => {
+    if (!data.id) return;
+    setIsSaving(true);
 
-                        <div className="space-y-2">
-                            <Label htmlFor="fullName" className="text-slate-700 dark:text-slate-300 font-medium">
-                                Nama Lengkap
-                            </Label>
-                            <Input
-                                id="fullName"
-                                type="text"
-                                value={fullName}
-                                onChange={(e) => setFullName(e.target.value)}
-                                placeholder="Masukkan nama lengkap kamu"
-                                className="focus-visible:ring-emerald-500"
-                            />
-                        </div>
+    try {
+      let finalAvatarUrl = tempData.avatar_url;
 
-                        <div className="space-y-2">
-                            <Label htmlFor="email" className="text-slate-700 dark:text-slate-300 font-medium">
-                                Alamat Email
-                            </Label>
-                            <Input
-                                id="email"
-                                type="email"
-                                value={email}
-                                disabled
-                                className="bg-slate-50 dark:bg-slate-900 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-800 cursor-not-allowed"
-                            />
-                        </div>
+      if (avatarFile) {
+        setIsUploadingAvatar(true);
+        finalAvatarUrl = await uploadAvatarToStorage(avatarFile);
+        setIsUploadingAvatar(false);
+        setAvatarFile(null);
+      }
 
-                        <div className="space-y-2">
-                            <Label htmlFor="phone" className="text-slate-700 dark:text-slate-300 font-medium">
-                                Nomor Handphone
-                            </Label>
-                            <Input
-                                id="phone"
-                                type="text"
-                                value={phoneNumber}
-                                onChange={(e) => setPhoneNumber(e.target.value)}
-                                placeholder="Contoh: 081234567890"
-                                className="focus-visible:ring-emerald-500"
-                            />
-                        </div>
+      const { error: updateError } = await supabase
+        .from("profiles")
+        .update({
+          full_name: tempData.full_name,
+          phone_number: tempData.phone_number,
+          avatar_url: finalAvatarUrl,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", data.id);
 
-                        <div className="pt-2 flex justify-end">
-                            <Button
-                                onClick={handleSave}
-                                disabled={saving}
-                                className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium px-6 shadow-sm shadow-emerald-600/10 active:scale-98 transition-all"
-                            >
-                                {saving ? (
-                                    <>
-                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                        Menyimpan...
-                                    </>
-                                ) : (
-                                    "Simpan Perubahan"
-                                )}
-                            </Button>
-                        </div>
+      if (updateError) throw updateError;
 
-                    </CardContent>
-                </Card>
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase.from("activity_logs").insert({
+          action: "updated",
+          entity: "profiles",
+          description: `Memperbarui profil: ${tempData.full_name}`,
+          created_by: user.id,
+        });
+      }
 
+      setData({ ...tempData, avatar_url: finalAvatarUrl });
+      setLastUpdated(new Date());
+      setIsEdit(false);
+      showToast("Profil berhasil diperbarui!");
+    } catch (error: any) {
+      showToast("Gagal menyimpan: " + error.message, "error");
+    } finally {
+      setIsSaving(false);
+      setIsUploadingAvatar(false);
+    }
+  };
+
+  const handleCancel = () => {
+    if (tempData.full_name !== data.full_name || tempData.phone_number !== data.phone_number || avatarFile) {
+      if (!confirm("Batalkan semua perubahan data Anda?")) return;
+    }
+    setTempData(data);
+    setAvatarFile(null);
+    setIsEdit(false);
+  };
+
+  const formatTanggalIndo = (isoString: string | null) => {
+    if (!isoString) return "-";
+    const date = new Date(isoString);
+    return date.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
+  };
+
+  const currentLevel = LEVEL_CONFIG[data.level] || { label: data.level, color: "bg-gray-100" };
+
+  return (
+    <div className="max-w-md mx-auto bg-slate-50 min-h-screen sm:min-h-auto sm:my-6 rounded-2xl shadow-xl overflow-hidden border border-gray-100">
+      
+      {/* HERO HEADER AREA */}
+      <div className="bg-gradient-to-b from-emerald-500 to-emerald-600 px-6 pt-8 pb-20 text-center relative">
+        <h2 className="text-white font-bold text-lg">Akun Saya</h2>
+        <p className="text-emerald-100 text-xs mt-0.5">Atur informasi pribadi Anda</p>
+      </div>
+
+      {/* AVATAR CARD POP-UP */}
+      <div className="px-4 -mt-14 relative z-10">
+        <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 flex flex-col items-center text-center">
+          <div className="relative">
+            <div className="w-24 h-24 rounded-full ring-4 ring-white shadow-md overflow-hidden bg-slate-100 flex items-center justify-center">
+              {tempData.avatar_url ? (
+                <img src={tempData.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+              ) : (
+                <User className="w-10 h-10 text-slate-300" />
+              )}
             </div>
+            
+            {isEdit && (
+              <label className="absolute bottom-0 right-0 bg-emerald-600 hover:bg-emerald-700 text-white p-2 rounded-full cursor-pointer shadow-md transition-transform active:scale-95">
+                <Camera className="w-4 h-4" />
+                <input type="file" accept="image/png, image/jpeg, image/jpg" onChange={handleAvatarChange} className="hidden" />
+              </label>
+            )}
+          </div>
 
-            {/* Alert Dialog — Sukses / Gagal */}
-            <AlertDialog open={alertOpen} onOpenChange={setAlertOpen}>
-                <AlertDialogContent className="rounded-2xl max-w-[90%] sm:max-w-sm">
-                    <AlertDialogHeader>
-                        <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-2 ${alertSuccess ? "bg-emerald-100" : "bg-red-100"
-                            }`}>
-                            {alertSuccess
-                                ? <CheckCircle2 className="w-6 h-6 text-emerald-600" />
-                                : <AlertCircle className="w-6 h-6 text-red-600" />
-                            }
-                        </div>
-                        <AlertDialogTitle className="text-center text-base font-bold text-slate-900">
-                            {alertTitle}
-                        </AlertDialogTitle>
-                        <AlertDialogDescription className="text-center text-sm text-slate-500">
-                            {alertMsg}
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter className="mt-2">
-                        <AlertDialogAction className={`h-9 rounded-xl text-xs font-semibold text-white ${alertSuccess
-                            ? "bg-emerald-600 hover:bg-emerald-700"
-                            : "bg-red-600 hover:bg-red-700"
-                            }`}>
-                            OK
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
-
-            {/* Confirm Dialog — Hapus Foto */}
-            <AlertDialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
-                <AlertDialogContent className="rounded-2xl max-w-[90%] sm:max-w-sm">
-                    <AlertDialogHeader>
-                        <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-2">
-                            <Trash2 className="w-6 h-6 text-red-600" />
-                        </div>
-                        <AlertDialogTitle className="text-center text-base font-bold text-slate-900">
-                            Hapus Foto Profile?
-                        </AlertDialogTitle>
-                        <AlertDialogDescription className="text-center text-sm text-slate-500">
-                            Foto profile kamu akan dihapus secara permanen.
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter className="flex-row gap-2 mt-2">
-                        <AlertDialogCancel className="text-xs font-semibold h-9 rounded-xl border-slate-200 text-slate-600 mt-0 flex-1 sm:flex-none">
-                            Batal
-                        </AlertDialogCancel>
-                        <AlertDialogAction
-                            onClick={deleteAvatar}
-                            className="text-xs font-semibold h-9 rounded-xl bg-red-600 hover:bg-red-700 text-white flex-1 sm:flex-none"
-                        >
-                            Ya, Hapus
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
+          <h3 className="mt-3 font-bold text-gray-800 text-base">{data.full_name || "Tanpa Nama"}</h3>
+          
+          <div className="flex gap-1.5 items-center mt-2">
+            <span className={`text-[11px] font-bold px-3 py-0.5 rounded-full border uppercase tracking-wider ${currentLevel.color}`}>
+              {currentLevel.label}
+            </span>
+            {data.role === "internal" && (
+              <span className="text-[11px] font-bold px-3 py-0.5 rounded-full bg-rose-50 text-rose-600 border border-rose-100 capitalize">
+                Staff ({data.internal_role || "User"})
+              </span>
+            )}
+          </div>
         </div>
-    );
+      </div>
+
+      {/* PROFILE DETAILS */}
+      <div className="p-4 space-y-3">
+        <div className="bg-white rounded-2xl border border-gray-100 divide-y divide-gray-50 overflow-hidden shadow-sm">
+          
+          {/* Item: Nama */}
+          <div className="p-4 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-slate-50 text-slate-500 rounded-lg"><User className="w-4 h-4" /></div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Nama Lengkap</p>
+                {!isEdit ? (
+                  <p className="text-sm font-medium text-gray-700 mt-0.5">{data.full_name || "-"}</p>
+                ) : (
+                  <input
+                    type="text"
+                    name="full_name"
+                    value={tempData.full_name || ""}
+                    onChange={handleChange}
+                    placeholder="Masukkan nama"
+                    className="text-sm font-medium text-emerald-600 bg-emerald-50/50 border-b border-emerald-300 outline-none px-1 mt-0.5 w-full focus:bg-emerald-50"
+                  />
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Item: Telepon */}
+          <div className="p-4 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-slate-50 text-slate-500 rounded-lg"><Phone className="w-4 h-4" /></div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Nomor Telepon</p>
+                {!isEdit ? (
+                  <p className="text-sm font-medium text-gray-700 mt-0.5">{data.phone_number || "-"}</p>
+                ) : (
+                  <input
+                    type="text"
+                    name="phone_number"
+                    value={tempData.phone_number || ""}
+                    onChange={handleChange}
+                    placeholder="Contoh: 081234..."
+                    className="text-sm font-medium text-emerald-600 bg-emerald-50/50 border-b border-emerald-300 outline-none px-1 mt-0.5 w-full focus:bg-emerald-50"
+                  />
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Item: Email */}
+          <div className="p-4 flex items-center justify-between gap-4 bg-gray-50/30">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-slate-100/80 text-slate-400 rounded-lg"><Mail className="w-4 h-4" /></div>
+              <div>
+                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Alamat Email</p>
+                <p className="text-sm font-medium text-gray-400 mt-0.5">{data.email || "-"}</p>
+              </div>
+            </div>
+            {isEdit && (
+              <span className="text-[9px] bg-slate-200 text-slate-500 font-semibold px-2 py-0.5 rounded flex items-center gap-1 select-none">
+                <Lock className="w-2.5 h-2.5" /> Terkunci
+              </span>
+            )}
+          </div>
+
+          {/* Item: Info Join */}
+          <div className="p-4 flex items-center justify-between gap-4 bg-gray-50/30">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-slate-100/80 text-slate-400 rounded-lg"><Calendar className="w-4 h-4" /></div>
+              <div>
+                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Bergabung Sejak</p>
+                <p className="text-sm font-medium text-gray-500 mt-0.5">{formatTanggalIndo(data.created_at)}</p>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        {/* FLOATING ACTION BUTTONS */}
+        <div className="pt-2">
+          {!isEdit ? (
+            <button
+              onClick={() => setIsEdit(true)}
+              className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm py-3 rounded-xl shadow-md active:scale-[0.99] transition"
+            >
+              <Pencil className="w-4 h-4" /> Edit Profil
+            </button>
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={handleSave}
+                disabled={isSaving}
+                className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm py-3 rounded-xl shadow-md disabled:opacity-50 transition"
+              >
+                <Save className="w-4 h-4" />
+                {isSaving ? "Menyimpan..." : "Simpan"}
+              </button>
+              <button
+                onClick={handleCancel}
+                disabled={isSaving}
+                className="w-full flex items-center justify-center gap-2 bg-white hover:bg-gray-50 text-gray-600 border border-gray-200 font-semibold text-sm py-3 rounded-xl transition"
+              >
+                <X className="w-4 h-4" /> Batal
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* FOOTER METADATA */}
+        <p className="text-center text-[10px] text-gray-400 pt-2">
+          {lastUpdated 
+            ? `Pembaruan berhasil dilakukan.` 
+            : data.updated_at 
+              ? `Terakhir diperbarui: ${new Date(data.updated_at).toLocaleDateString("id-ID")}` 
+              : "Profil aktif."}
+        </p>
+      </div>
+
+      {/* ── TOAST NOTIFICATION ── */}
+      {toast && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center pointer-events-none animate-in fade-in zoom-in-95 duration-200">
+          <div className={`flex items-center gap-2.5 rounded-2xl px-5 py-3 shadow-lg backdrop-blur-sm ${
+            toast.type === "success"
+              ? "bg-white/95 border border-slate-200"
+              : "bg-white/95 border border-red-200"
+          }`}>
+            <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
+              toast.type === "success" ? "bg-emerald-50" : "bg-red-50"
+            }`}>
+              {toast.type === "success" ? (
+                <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+              ) : (
+                <AlertCircle className="h-4 w-4 text-red-500" />
+              )}
+            </div>
+            <p className="text-sm font-medium text-slate-700">{toast.message}</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }

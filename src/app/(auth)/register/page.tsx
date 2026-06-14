@@ -20,16 +20,39 @@ export default function RegisterPage() {
     const [message, setMessage] = useState("");
     const [messageType, setMessageType] = useState<"success" | "error">("success");
 
+    const [emailError, setEmailError] = useState("");
+    const [phoneError, setPhoneError] = useState("");
+    const [emailTouched, setEmailTouched] = useState(false);
+    const [phoneTouched, setPhoneTouched] = useState(false);
+
+    const validateEmail = (value: string): string => {
+        if (!value) return "Email wajib diisi";
+        const pattern = /^[a-zA-Z0-9._%+-]+@gmail\.com$/;
+        if (!pattern.test(value)) return "Email hanya boleh menggunakan domain @gmail.com";
+        return "";
+    };
+
+    const validatePhone = (value: string): string => {
+        if (!value) return "Nomor WhatsApp wajib diisi";
+        if (!/^08/.test(value)) return "Nomor harus dimulai dengan 08";
+        if (value.length < 10) return `Nomor terlalu pendek (min. 10 digit, saat ini ${value.length})`;
+        if (value.length > 13) return "Nomor terlalu panjang (maks. 13 digit)";
+        return "";
+    };
+
     const handleRegisterSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setMessage("");
 
-        const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailPattern.test(email)) {
-            setMessageType("error");
-            setMessage("Format Email Tidak Valid!");
-            return;
-        }
+        setEmailTouched(true);
+        setPhoneTouched(true);
+
+        const eErr = validateEmail(email);
+        const pErr = validatePhone(phoneNumber);
+        setEmailError(eErr);
+        setPhoneError(pErr);
+
+        if (eErr || pErr) return;
 
         try {
             const dummyPassword = Math.random().toString(36).slice(-10) + "A1!";
@@ -98,12 +121,23 @@ export default function RegisterPage() {
                                 <Input
                                     type="email"
                                     placeholder="nama@email.com"
-                                    className="pl-10 h-11 rounded-xl border-slate-200 focus-visible:ring-emerald-500"
+                                    className={`pl-10 h-11 rounded-xl ${emailTouched && emailError ? "border-red-400 focus-visible:ring-red-400" : "border-slate-200 focus-visible:ring-emerald-500"}`}
                                     value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
+                                    onChange={(e) => {
+                                        const val = e.target.value;
+                                        setEmail(val);
+                                        if (emailTouched) setEmailError(validateEmail(val));
+                                    }}
+                                    onBlur={() => {
+                                        setEmailTouched(true);
+                                        setEmailError(validateEmail(email));
+                                    }}
                                     required
                                 />
                             </div>
+                            {emailTouched && emailError && (
+                                <p className="text-xs text-red-500 pl-1">{emailError}</p>
+                            )}
                         </div>
 
                         <div className="space-y-2">
@@ -113,15 +147,23 @@ export default function RegisterPage() {
                                 <Input
                                     type="tel"
                                     placeholder="08123456789"
-                                    className="pl-10 h-11 rounded-xl border-slate-200 focus-visible:ring-emerald-500"
+                                    className={`pl-10 h-11 rounded-xl ${phoneTouched && phoneError ? "border-red-400 focus-visible:ring-red-400" : "border-slate-200 focus-visible:ring-emerald-500"}`}
                                     value={phoneNumber}
                                     onChange={(e) => {
                                         const value = e.target.value.replace(/\D/g, "");
                                         setPhoneNumber(value);
+                                        if (phoneTouched) setPhoneError(validatePhone(value));
+                                    }}
+                                    onBlur={() => {
+                                        setPhoneTouched(true);
+                                        setPhoneError(validatePhone(phoneNumber));
                                     }}
                                     required
                                 />
                             </div>
+                            {phoneTouched && phoneError && (
+                                <p className="text-xs text-red-500 pl-1">{phoneError}</p>
+                            )}
                         </div>
 
                         <Button
